@@ -21,4 +21,4 @@ jobs:
           components: rust-src
 
       - name: cargo build it!
-        run: cargo build
+        run: cd os ; cargo build ;
