@@ -9,6 +9,7 @@ mod sbi;
 
 use core::arch::global_asm;
 global_asm!(include_str!("entry.asm"));
+global_asm!(include_str!("link_app.S"));
 
 #[unsafe(no_mangle)]
 pub fn rust_main() -> ! {
@@ -18,8 +19,8 @@ pub fn rust_main() -> ! {
 }
 fn clear_bss() {
     unsafe extern "C" {
-        fn sbss();
-        fn ebss();
+        safe fn sbss();
+        safe fn ebss();
     }
     for item in sbss as unsafe extern "C" fn() as usize..ebss as unsafe extern "C" fn() as usize {
         unsafe {
