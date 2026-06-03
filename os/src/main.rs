@@ -4,8 +4,11 @@
 //add my MODs
 #[macro_use]
 mod console;
+pub mod batch;
 mod lang_items;
 mod sbi;
+mod sync;
+pub mod trap;
 
 use core::arch::global_asm;
 global_asm!(include_str!("entry.asm"));
