@@ -8,6 +8,7 @@ pub mod batch;
 mod lang_items;
 mod sbi;
 mod sync;
+pub mod syscall;
 pub mod trap;
 
 use core::arch::global_asm;
