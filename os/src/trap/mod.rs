@@ -14,7 +14,16 @@
 mod context;
 
 use core::arch::global_asm;
-use riscv::register::{stvec, utvec::TrapMode};
+use riscv::register::{
+    scause::{
+        self, Exception,
+        Trap::{self, Exception},
+    },
+    stval, stvec,
+    utvec::TrapMode,
+};
+
+use crate::trap::context::TrapContext;
 
 global_asm!(include_str!("trap.S"));
 
@@ -24,5 +33,18 @@ pub fn init() {
     }
     unsafe {
         stvec::write(__alltraps as *const u8 as usize, TrapMode::Direct);
+    }
+}
+
+#[unsafe(no_mangle)]
+/// handle an interrupt, exception, or system call from user space
+pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
+    let scause = scause::read(); // get trap cause
+    let stval = stval::read(); // get extra value
+    match scause.cause() {
+        Trap::Exception(Exception::UserEnvCall) => {
+            cx.sepc += 4;
+            /// need syscall()here!!!
+        }
     }
 }

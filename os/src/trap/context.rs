@@ -7,5 +7,5 @@ pub struct TrapContext {
     /// CSR sstatus
     pub sstatus: Sstatus,
     /// CSR spec
-    pub spec: usize,
+    pub sepc: usize,
 }
