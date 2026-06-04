@@ -133,7 +133,7 @@ pub fn run_next_app() -> ! {
     app_manager.load_app(current_app);
     app_manager.move_to_next_app();
     drop(app_manager);
-    //!!!!!!!!!!!!!!!! add context switch here
-    //!!!!!!!!!!!!!!!
+    //_!!!!!!!!!!!!!!!! add context switch here
+    //_!!!!!!!!!!!!!!!
     panic!("Unreachable in batch::run_current_app");
 }
