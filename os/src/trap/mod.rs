@@ -15,15 +15,12 @@ mod context;
 
 use core::arch::global_asm;
 use riscv::register::{
-    scause::{
-        self, Exception,
-        Trap::{self, Exception},
-    },
+    scause::{self, Exception, Trap},
     stval, stvec,
-    utvec::TrapMode,
+    stvec::TrapMode,
 };
 
-use crate::trap::context::TrapContext;
+use crate::{batch::run_next_app, syscall::syscall, trap::context::TrapContext};
 
 global_asm!(include_str!("trap.S"));
 
@@ -44,7 +41,23 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
     match scause.cause() {
         Trap::Exception(Exception::UserEnvCall) => {
             cx.sepc += 4;
-            /// need syscall()here!!!
+            cx.x[10] = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
+        }
+        Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
+            println!("[kernel] PageFault in application, kernel killed it.");
+            run_next_app();
+        }
+        Trap::Exception(Exception::IllegalInstruction) => {
+            println!("[kernel] IllegalInstruction in application, kernel killed it.");
+            run_next_app();
+        }
+        _ => {
+            panic!(
+                "Unsupported trap {:?}, stval = {:#x}!",
+                scause.cause(),
+                stval
+            );
         }
     }
+    cx
 }
