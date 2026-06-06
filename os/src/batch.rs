@@ -2,6 +2,7 @@
 
 use crate::sbi::shutdown;
 use crate::sync::UPSafeCell;
+use crate::trap::TrapContext;
 use core::arch::asm;
 use lazy_static::*;
 
@@ -25,13 +26,20 @@ static KERNEL_STACK: KernelStack = KernelStack {
     data: [0; KERNEL_STACK_SIZE],
 };
 
-static USER_STACK: KernelStack = KernelStack {
+static USER_STACK: UserStack = UserStack {
     data: [0; USER_STACK_SIZE],
 };
 
 impl KernelStack {
     fn get_sp(&self) -> usize {
         self.data.as_ptr() as usize + KERNEL_STACK_SIZE
+    }
+    pub fn push_context(&self, cx: TrapContext) -> &'static mut TrapContext {
+        let cx_ptr = (self.get_sp() - core::mem::size_of::<TrapContext>()) as *mut TrapContext;
+        unsafe {
+            *cx_ptr = cx;
+        }
+        unsafe { cx_ptr.as_mut().unwrap() }
     }
 }
 
@@ -133,7 +141,16 @@ pub fn run_next_app() -> ! {
     app_manager.load_app(current_app);
     app_manager.move_to_next_app();
     drop(app_manager);
-    //_!!!!!!!!!!!!!!!! add context switch here
-    //_!!!!!!!!!!!!!!!
+    // before this we have to drop local variables related to resources manually
+    // and release the resources
+    unsafe extern "C" {
+        unsafe fn __restore(cx_addr: usize);
+    }
+    unsafe {
+        __restore(KERNEL_STACK.push_context(TrapContext::app_init_context(
+            APP_BASE_ADDRESS,
+            USER_STACK.get_sp(),
+        )) as *const _ as usize);
+    }
     panic!("Unreachable in batch::run_current_app");
 }

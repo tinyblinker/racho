@@ -13,14 +13,15 @@
 //! to [`syscall()`].
 mod context;
 
+use crate::batch::run_next_app;
+use crate::syscall::syscall;
+pub use context::TrapContext;
 use core::arch::global_asm;
 use riscv::register::{
     scause::{self, Exception, Trap},
     stval, stvec,
     stvec::TrapMode,
 };
-
-use crate::{batch::run_next_app, syscall::syscall, trap::context::TrapContext};
 
 global_asm!(include_str!("trap.S"));
 
