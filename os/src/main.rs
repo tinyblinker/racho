@@ -6,6 +6,7 @@
 mod console;
 pub mod batch;
 mod lang_items;
+mod logging;
 mod sbi;
 mod sync;
 pub mod syscall;
