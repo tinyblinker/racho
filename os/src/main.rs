@@ -17,6 +17,19 @@ use log::*;
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S"));
 
+/// clear BSS segment
+fn clear_bss() {
+    unsafe extern "C" {
+        safe fn sbss();
+        safe fn ebss();
+    }
+    for item in sbss as unsafe extern "C" fn() as usize..ebss as unsafe extern "C" fn() as usize {
+        unsafe {
+            (item as *mut u8).write_volatile(0);
+        }
+    }
+}
+
 /// the rust entry-point of OS
 #[unsafe(no_mangle)]
 pub fn rust_main() -> ! {
@@ -55,17 +68,7 @@ pub fn rust_main() -> ! {
         "[kernel] .bss [{:#x}, {:#x})",
         sbss as *const u8 as usize, ebss as *const u8 as usize,
     );
-    loop {}
-}
-
-fn clear_bss() {
-    unsafe extern "C" {
-        safe fn sbss();
-        safe fn ebss();
-    }
-    for item in sbss as unsafe extern "C" fn() as usize..ebss as unsafe extern "C" fn() as usize {
-        unsafe {
-            (item as *mut u8).write_volatile(0);
-        }
-    }
+    trap::init();
+    batch::init();
+    batch::run_next_app();
 }
