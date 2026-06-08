@@ -13,6 +13,7 @@ pub mod syscall;
 pub mod trap;
 
 use core::arch::global_asm;
+use log::*;
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S"));
 
@@ -34,6 +35,26 @@ pub fn rust_main() -> ! {
     clear_bss();
     logging::init();
     println!("[kernel] Hello, world!");
+    trace!(
+        "[kernel] .text [{:#x}, {:#x})",
+        stext as *const u8 as usize, etext as *const u8 as usize,
+    );
+    debug!(
+        "[kernel] .rodata [{:#x}, {:#x})",
+        srodata as *const u8 as usize, erodata as *const u8 as usize,
+    );
+    info!(
+        "[kernel] .data [{:#x}, {:#x})",
+        sdata as *const u8 as usize, edata as *const u8 as usize,
+    );
+    warn!(
+        "[kernel] boot_stack top=bottom={:#x}, lower_bound={:#x}",
+        boot_stack_top as *const u8 as usize, boot_stack_lower_bound as *const u8 as usize,
+    );
+    error!(
+        "[kernel] .bss [{:#x}, {:#x})",
+        sbss as *const u8 as usize, ebss as *const u8 as usize,
+    );
     loop {}
 }
 
