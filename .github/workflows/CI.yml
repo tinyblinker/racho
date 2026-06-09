@@ -20,5 +20,9 @@ jobs:
           targets: riscv64gc-unknown-none-elf
           components: rust-src
 
-      - name: cargo build it!
+      - name: userspace build test
+        run : cd user ; make build ;
+
+      - name: kernel test
         run: cd os ; make run ;
+
