@@ -10,6 +10,7 @@ mod logging;
 mod sbi;
 mod sync;
 pub mod syscall;
+pub mod task;
 pub mod trap;
 
 use core::arch::global_asm;
