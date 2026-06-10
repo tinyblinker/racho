@@ -17,7 +17,7 @@ const SYSCALL_GET_TIME: usize = 169;
 
 mod fs;
 mod process;
-use crate::syscall::{fs::sys_write, process::sys_exit};
+use crate::syscall::{fs::sys_write, process::sys_exit, process::sys_yield};
 
 /// handle syscall exception with 'syscall_id' and other arguments
 pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
