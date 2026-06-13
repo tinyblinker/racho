@@ -1,4 +1,5 @@
 use crate::trap::TrapContext;
+use core::arch::asm;
 
 const MAX_APP_NUM: usize = 16;
 const APP_BASE_ADDRESS: usize = 0x80400000;
@@ -59,7 +60,12 @@ pub fn get_base_i(app_id: usize) -> usize {
 /// Load the user app at
 /// [APP_BASE_ADDRESS + n * APP_SIZE_LIMIT, APP_BASE_ADDRESS + (n + 1) * APP_SIZE_LIMIT]).
 fn load_app() {
+    unsafe extern "C" {
+        safe fn _num_app();
+    }
     let num_app = get_num_app();
+    let num_app_ptr = _num_app as *const usize;
+    let app_start = unsafe { core::slice::from_raw_parts(num_app_ptr.add(1), num_app + 1) };
     // load apps
     for i in 0..num_app {
         let base_i = get_base_i(i);
@@ -68,6 +74,21 @@ fn load_app() {
             unsafe {
                 (addr as *mut u8).write_volatile(0);
             }
+        }
+        // load app from data section to memory
+        let src = unsafe {
+            core::slice::from_raw_parts(app_start[i] as *const u8, app_start[i + 1] - app_start[i])
+        };
+        let dst = unsafe { core::slice::from_raw_parts_mut(base_i as *mut u8, src.len()) };
+        dst.copy_from_slice(src);
+        // Memory fence about fetching the instruction memory
+        // It is guaranteed that a subsequent instruction fetch must
+        // observes all previous writes to the instruction memory.
+        // Therefore, fence.i must be executed after we have loaded
+        // the code of the next app into the instruction memory.
+        // See also: riscv non-priv spec chapter 3, 'Zifencei' extension.
+        unsafe {
+            asm!("fence.i");
         }
     }
 }
