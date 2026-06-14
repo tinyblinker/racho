@@ -3,6 +3,7 @@ mod task;
 
 use super::sync::UPSafeCell;
 use crate::config::MAX_APP_NUM;
+use crate::loader::init_app_cx;
 use crate::task::context::TaskContext;
 use crate::task::task::TaskControlBlock;
 use crate::task::task::TaskStatus;
@@ -31,7 +32,7 @@ lazy_static! {
             task_status: TaskStatus::UnInit,
         }; MAX_APP_NUM];
         for (i,task) in tasks.iter_mut().enumerate(){
-            task.task_cx = TaskContext::goto_restore();
+            task.task_cx = TaskContext::goto_restore(init_app_cx(i));
             task.task_status = TaskStatus::Ready;
         }
         TaskManager{
@@ -44,6 +45,27 @@ lazy_static! {
             }
         }
     };
+}
+
+impl TaskManager {
+    fn run_first_task(&self) -> ! {
+        let mut inner = self.inner.exclusive_access();
+        let task0 = &mut inner.tasks[0];
+        task0.task_status = TaskStatus::Running;
+        let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
+        drop(inner);
+
+        let mut _unused = TaskContext::zero_init();
+
+        unsafe {
+            __switch(&mut _unused as *mut TaskContext, next_task_cx_ptr);
+        }
+
+        panic!("unreachable in run_first_task")
+    }
+
+    /// Change the status of current
+    fn mark_current_suspended(&self)
 }
 
 /// suspend current task
