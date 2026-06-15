@@ -65,7 +65,33 @@ impl TaskManager {
     }
 
     /// Change the status of current
-    fn mark_current_suspended(&self)
+    fn mark_current_suspended(&self) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].task_status = TaskStatus::Ready;
+    }
+
+    /// Change the status of current `Running` task into `Ready`
+    fn mark_current_exited(&self) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].task_status = TaskStatus::Exited;
+    }
+
+    /// Find next task to run and return task id.
+    ///
+    /// In this case, we only return the first `Ready` task in task list.
+    fn find_next_task(&self) {
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        (current + 1..current + self.num_app + 1)
+            .map(|id| id % self.num_app)
+            .find(|id| inner.tasks[*id].task_status == TaskStatus::Ready);
+    }
+
+    /// Switch current `Running` task to the task we have found,
+    /// or there is no `Ready` task and we can exit with all applications complecated
+    fn run_next_task(&self) {}
 }
 
 /// suspend current task
