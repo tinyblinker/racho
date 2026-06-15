@@ -1,14 +1,15 @@
 mod context;
+mod switch;
 mod task;
 
 use super::sync::UPSafeCell;
 use crate::config::MAX_APP_NUM;
 use crate::loader::init_app_cx;
 use crate::task::context::TaskContext;
+use crate::task::switch::__switch;
 use crate::task::task::TaskControlBlock;
 use crate::task::task::TaskStatus;
 use crate::{loader::get_num_app, sbi::shutdown};
-use core::arch::asm;
 use lazy_static::*;
 
 pub struct TaskManagerInner {
@@ -81,24 +82,46 @@ impl TaskManager {
     /// Find next task to run and return task id.
     ///
     /// In this case, we only return the first `Ready` task in task list.
-    fn find_next_task(&self) {
+    fn find_next_task(&self) -> Option<usize> {
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
         (current + 1..current + self.num_app + 1)
             .map(|id| id % self.num_app)
-            .find(|id| inner.tasks[*id].task_status == TaskStatus::Ready);
+            .find(|id| inner.tasks[*id].task_status == TaskStatus::Ready)
     }
 
     /// Switch current `Running` task to the task we have found,
     /// or there is no `Ready` task and we can exit with all applications complecated
-    fn run_next_task(&self) {}
+    fn run_next_task(&self) {
+        if let Some(next) = self.find_next_task() {
+            let mut inner = self.inner.exclusive_access();
+            let current = inner.current_task;
+            inner.tasks[next].task_status = TaskStatus::Running;
+            inner.current_task = next;
+            let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
+            let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
+            drop(inner);
+            // before this, we should drop local variables that must be dropped mannually
+            unsafe {
+                __switch(current_task_cx_ptr, next_task_cx_ptr);
+            }
+            // go back to user mode
+        } else {
+            println!("All applications completed!");
+            shutdown(false);
+        }
+    }
 }
 
 /// suspend current task
-pub fn mark_current_suspended() {}
+pub fn mark_current_suspended() {
+    TASK_MANAGER.mark_current_suspended();
+}
 
 /// run next task
-pub fn run_next_task() {}
+pub fn run_next_task() {
+    TASK_MANAGER.run_next_task();
+}
 
 /// suspend current task and run next task
 pub fn suspend_current_and_run_next() {
