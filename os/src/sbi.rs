@@ -2,6 +2,12 @@ pub fn console_putchar(c: usize) {
     #[allow(deprecated)]
     sbi_rt::legacy::console_putchar(c);
 }
+
+/// use sbi call to set timer
+pub fn set_timer(timer: usize) {
+    sbi_rt::set_timer(timer as _);
+}
+
 pub fn shutdown(failure: bool) -> ! {
     use sbi_rt::{NoReason, Shutdown, SystemFailure, system_reset};
     if !failure {

@@ -55,7 +55,7 @@ pub fn get_base_i(app_id: usize) -> usize {
 
 /// Load the user app at
 /// [APP_BASE_ADDRESS + n * APP_SIZE_LIMIT, APP_BASE_ADDRESS + (n + 1) * APP_SIZE_LIMIT]).
-fn load_app() {
+pub fn load_apps() {
     unsafe extern "C" {
         safe fn _num_app();
     }
