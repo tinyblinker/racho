@@ -18,7 +18,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: riscv64gc-unknown-none-elf
-          components: rust-src
+          components: rust-src rust-objcopy
 
       - name: userspace build test
         run : cd user ; make build ;
