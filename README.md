@@ -9,7 +9,7 @@
 <h1 align="center">🌾 racho</h1>
 
 <p align="center">
-  <strong>A toy multi-program time-sharing OS kernel written in Rust for RISC-V</strong>
+  <strong>A toy operating system kernel written in Rust for RISC-V 64, featuring batch processing, time-sharing multitasking, and a growing syscall interface — aimed at running BusyBox</strong>
 </p>
 
 <p align="center">
@@ -194,6 +194,21 @@ Test sleep OK!
 | 169 | `get_time` | `() -> isize`                    | Get uptime in ms         |
 
 User-space apps call these via the `ecall` instruction (wrappers in [`user/src/syscall.rs`](user/src/syscall.rs)).
+
+---
+
+## 🗺 Roadmap
+
+### Short-term Goal
+
+- 🎯 **Run BusyBox** — extend the kernel with a file system, richer syscall support (`fork`, `exec`, `mmap`, etc.), and a proper process model to boot [BusyBox](https://busybox.net/) on racho.
+
+### Long-term Vision
+
+- Virtual memory / page table support
+- Multi-core support (SMP)
+- Networking stack
+- POSIX compatibility layer
 
 ---
 
