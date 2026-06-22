@@ -9,11 +9,11 @@
 <h1 align="center">🌾 racho</h1>
 
 <p align="center">
-  <strong>A toy operating system kernel written in Rust for RISC-V 64, featuring batch processing, time-sharing multitasking, and a growing syscall interface — aimed at running BusyBox</strong>
+  <strong>A toy operating system kernel written in Rust for RISC-V 64 — from bare-metal boot to time-sharing multitasking, aiming to run BusyBox</strong>
 </p>
 
 <p align="center">
-  <em>Follows the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> — from bare-metal hello world to a preemptive multi-program batch OS with syscall interface.</em>
+  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–3). Kernel boots on QEMU virt; all subsystems (trap, task, syscall) are implemented — currently being wired up in <code>main.rs</code>.</em>
 </p>
 
 ---
@@ -89,9 +89,9 @@ racho/
 │   ├── src/
 │   │   ├── main.rs           # Entry point: rust_main()
 │   │   ├── entry.asm         # ASM entry: _start
-│   │   ├── trap/             # Trap handling (mod.S / context.S / trap.S)
-│   │   ├── task/             # Task manager & context switching
-│   │   ├── syscall/          # Syscall dispatcher + fs + process
+│   │   ├── trap/             # Trap handling (mod.rs / context.rs / trap.S)
+│   │   ├── task/             # Task manager & context switch (task.rs / switch.S)
+│   │   ├── syscall/          # Syscall dispatcher (mod.rs / fs.rs / process.rs)
 │   │   ├── sync/             # UPSafeCell (uniprocessor-safe interior mutability)
 │   │   ├── loader.rs         # Loads app binaries into memory
 │   │   ├── timer.rs          # RISC-V timer (mtime/mtimecmp)
@@ -145,22 +145,36 @@ sudo apt install qemu-system-riscv64
 ### Build
 
 ```bash
-make
+cd os && make build
 ```
 
-This compiles the user-space apps, embeds them into the kernel, and builds the final `os.bin`.
+This compiles the 4 user-space apps, embeds them into the kernel via `link_app.S`, builds the kernel ELF, and strips it to `os/target/riscv64gc-unknown-none-elf/release/os.bin`.
 
 ### Run
 
 ```bash
-./run_tcp_off.sh
+cd os && make run    # builds + runs in one command
+# or:
+make run             # top-level alias (requires pre-built os.bin)
 ```
 
-Expected output:
+Current output (trap/task init still commented out in `main.rs:77–81`):
 
 ```
-[INFO] [kernel] Hello, world!
-[INFO] num_app = 4
+[ INFO] [kernel] Hello, world!
+heap_test passed!
+Panicked at src/main.rs:82 Unreachable in rust_main
+```
+
+> Once lines 77–81 are uncommented, the kernel loads 4 user apps and runs the full time-sharing schedule:
+
+<details>
+<summary>Full multi-app output (after wiring up)</summary>
+
+```
+[ INFO] [kernel] Hello, world!
+heap_test passed!
+[ INFO] num_app = 4
 power_3 [10000/200000]
 power_3 [20000/200000]
 ...
@@ -169,17 +183,23 @@ Test power_3 OK!
 power_5 [10000/140000]
 ...
 Test sleep OK!
-[INFO] All applications completed!
+[ INFO] All applications completed!
 ```
+
+</details>
 
 ### Debug with GDB
 
 ```bash
 # Terminal 1: start QEMU with GDB stub
-./run_tcp_on.sh
+cd os && make build && ./rust_objcopy.sh
+cd .. && ./run_tcp_on.sh
 
 # Terminal 2: connect GDB
-./tcp_gdb_on.sh
+riscv64-elf-gdb \
+  -ex 'file os/target/riscv64gc-unknown-none-elf/release/os' \
+  -ex 'set arch riscv:rv64' \
+  -ex 'target remote localhost:1234'
 ```
 
 ---
