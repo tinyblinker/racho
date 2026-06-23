@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–3). Kernel boots on QEMU virt; all subsystems (trap, task, syscall) are implemented — currently being wired up in <code>main.rs</code>.</em>
+  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4). Kernel boots on QEMU virt; all subsystems (trap, task, syscall) are implemented — currently being wired up in <code>main.rs</code>.</em>
 </p>
 
 ---
@@ -25,7 +25,8 @@
 - **Time-sharing scheduling** — round-robin scheduler with preemptive timer interrupts (~100 Hz)
 - **Trap handling** — full trap frame save/restore (32 GPRs + `sstatus` + `sepc`), dispatches interrupts, exceptions, and syscalls
 - **Syscall interface** — `write`, `exit`, `yield`, `get_time`
-- **User library** — small `user_lib` crate for writing user-space apps with `println!`, ecall wrappers, and a linker script
+- **Virtual memory** — SV39 page table address types (`VirtAddr`/`PhysAddr`/`PhysPageNum`), ready for page table management
+- **User library** — `user_lib` crate for writing user-space apps with `println!`, ecall wrappers, and a linker script
 - **GDB debugging** — scripts for connecting `riscv64-elf-gdb` to QEMU
 - **CI pipeline** — GitHub Actions builds and runs the kernel in QEMU on every push
 
@@ -84,36 +85,51 @@
 
 ```
 racho/
-├── bootloader/               # Prebuilt RustSBI binary
+├── bootloader/               # Prebuilt RustSBI binary (rustsbi-qemu.bin)
 ├── os/                       # Kernel crate
 │   ├── src/
 │   │   ├── main.rs           # Entry point: rust_main()
-│   │   ├── entry.asm         # ASM entry: _start
-│   │   ├── trap/             # Trap handling (mod.rs / context.rs / trap.S)
+│   │   ├── entry.asm         # ASM entry: _start (sets up boot stack)
+│   │   ├── config.rs         # Constants: MAX_APP_NUM, stack/heap sizes
+│   │   ├── link_app.S        # Generated: embeds user app binaries into .data
+│   │   ├── trap/             # Trap handler (mod.rs / context.rs / trap.S)
 │   │   ├── task/             # Task manager & context switch (task.rs / switch.S)
 │   │   ├── syscall/          # Syscall dispatcher (mod.rs / fs.rs / process.rs)
 │   │   ├── sync/             # UPSafeCell (uniprocessor-safe interior mutability)
-│   │   ├── loader.rs         # Loads app binaries into memory
-│   │   ├── timer.rs          # RISC-V timer (mtime/mtimecmp)
-│   │   ├── logging.rs        # Color-coded logger
-│   │   ├── sbi.rs            # SBI ecall wrappers
-│   │   └── boards/qemu.rs    # Board-specific constants
-│   ├── linker-qemu.ld        # Linker script
-│   └── build.rs              # Embeds user app binaries via link_app.S
-├── user/                     # User-space crate
+│   │   ├── mm/               # Memory management (heap_allocator / address types)
+│   │   ├── loader.rs         # Loads app binaries from link_app.S into memory
+│   │   ├── timer.rs          # RISC-V timer (mtime), ~100 Hz tick
+│   │   ├── logging.rs        # Color-coded kernel logger
+│   │   ├── console.rs        # print!/println! via SBI console_putchar
+│   │   ├── sbi.rs            # SBI ecall wrappers (console, timer, shutdown)
+│   │   ├── boards/qemu.rs     # Board-specific constant: CLOCK_FREQ
+│   │   └── lang_items.rs     # Panic handler
+│   ├── linker-qemu.ld        # Kernel linker script (base 0x80200000)
+│   ├── build.rs              # Generates link_app.S from user app binaries
+│   ├── rust_objcopy.sh       # Strips kernel ELF → raw binary
+│   ├── rust-analyzer.toml
+│   └── Makefile
+├── user/                     # User-space crate (user_lib)
 │   ├── src/
-│   │   ├── lib.rs            # User library (_start, syscalls)
-│   │   └── bin/              # Test applications
-│   │       ├── 00power_3.rs  # 3^200000 mod M (CPU-bound)
-│   │       ├── 01power_5.rs  # 5^140000 mod M
-│   │       ├── 02power_7.rs  # 7^160000 mod M
-│   │       └── 03sleep.rs    # Busy-wait 3s with yield
-│   └── build.py              # Builds each app at incrementing base addresses
-├── .github/workflows/CI.yml  # CI: builds & runs in QEMU
-├── run_tcp_off.sh            # Run QEMU (no GDB)
-├── run_tcp_on.sh             # Run QEMU (with GDB stub)
+│   │   ├── lib.rs            # User library: _start entry, syscall wrappers
+│   │   ├── syscall.rs        # ecall wrappers (write, exit, yield, get_time)
+│   │   ├── console.rs        # print!/println! via write syscall
+│   │   ├── lang_items.rs     # Panic handler (infinite loop)
+│   │   ├── linker.ld         # App linker script (base 0x80400000, patched per app)
+│   │   └── bin/              # User applications
+│   │       ├── 00power_3.rs  # 3^200000 mod 998244353 (CPU-bound)
+│   │       ├── 01power_5.rs  # 5^140000 mod 998244353
+│   │       ├── 02power_7.rs  # 7^160000 mod 998244353
+│   │       └── 03sleep.rs    # Busy-wait 3s with yield (cooperative multitasking)
+│   ├── build.py              # Builds each app at incrementing base addresses
+│   ├── rust-analyzer.toml
+│   └── Makefile
+├── rust-toolchain.toml       # Nightly Rust + RISC-V target
+├── run_tcp_off.sh            # Run kernel in QEMU
+├── run_tcp_on.sh             # Run QEMU with GDB stub (-s -S)
 ├── tcp_gdb_on.sh             # Connect GDB to QEMU
-└── Makefile                  # Top-level build & run
+├── .github/workflows/CI.yml  # GitHub Actions: builds & runs in QEMU
+└── Makefile                  # Top-level build & run aliases
 ```
 
 ---
@@ -191,9 +207,10 @@ Test sleep OK!
 ### Debug with GDB
 
 ```bash
-# Terminal 1: start QEMU with GDB stub
-cd os && make build && ./rust_objcopy.sh
-cd .. && ./run_tcp_on.sh
+# Build first, then start QEMU with GDB stub
+cd os && make build
+# Terminal 1:
+./run_tcp_on.sh
 
 # Terminal 2: connect GDB
 riscv64-elf-gdb \
@@ -239,6 +256,7 @@ This project follows the excellent **[rCore Tutorial Book v3](https://rcore-os.c
 - **Chapter 1** — Bare-metal Rust: remove `std`, ASM entry, `println!` via SBI
 - **Chapter 2** — Batch OS: trap handling, privilege levels, first syscalls, batch execution of multiple apps
 - **Chapter 3** — Time-sharing OS: timer interrupts, task switching, round-robin scheduling, preemptive multitasking
+- **Chapter 4** — Address space & paging: SV39 `VirtAddr`/`PhysAddr`/`PhysPageNum` types, ready for page table management
 
 ---
 
