@@ -262,4 +262,4 @@ This project follows the excellent **[rCore Tutorial Book v3](https://rcore-os.c
 
 ## 📄 License
 
-[GPLv2](LICENSE) © 2026 TinyBlink
+[GPLv2](LICENSE) © 2026 shyweeds
