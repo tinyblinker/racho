@@ -6,6 +6,8 @@
 mod boards;
 
 //add my MODs
+extern crate bitflags;
+
 #[macro_use]
 mod console;
 mod config;
