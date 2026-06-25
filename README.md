@@ -9,11 +9,11 @@
 <h1 align="center">🌾 racho</h1>
 
 <p align="center">
-  <strong>A toy operating system kernel written in Rust for RISC-V 64 — from bare-metal boot to time-sharing multitasking, aiming to run BusyBox</strong>
+  <strong>A toy operating system kernel written in Rust for RISC-V 64 — from bare-metal boot to SV39 paging, aiming for an Alpine-like userland with musl + BusyBox</strong>
 </p>
 
 <p align="center">
-  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4). Kernel boots on QEMU virt; all subsystems (trap, task, syscall) are implemented — currently being wired up in <code>main.rs</code>.</em>
+  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4). Kernel boots on QEMU virt; trap/task/syscall/memory subsystems are implemented — being wired up in <code>main.rs</code>.</em>
 </p>
 
 ---
@@ -25,7 +25,7 @@
 - **Time-sharing scheduling** — round-robin scheduler with preemptive timer interrupts (~100 Hz)
 - **Trap handling** — full trap frame save/restore (32 GPRs + `sstatus` + `sepc`), dispatches interrupts, exceptions, and syscalls
 - **Syscall interface** — `write`, `exit`, `yield`, `get_time`
-- **Virtual memory** — SV39 page table address types (`VirtAddr`/`PhysAddr`/`PhysPageNum`), ready for page table management
+- **Virtual memory** — SV39 paging primitives: page table entries (`PTEFlags` with V/R/W/X/U/G/A/D), frame allocator (`StackFrameAllocator` with recycling), and address type conversions (`VirtAddr`/`PhysAddr`/`PhysPageNum`/`VirtPageNum` with page alignment helpers)
 - **User library** — `user_lib` crate for writing user-space apps with `println!`, ecall wrappers, and a linker script
 - **GDB debugging** — scripts for connecting `riscv64-elf-gdb` to QEMU
 - **CI pipeline** — GitHub Actions builds and runs the kernel in QEMU on every push
@@ -71,6 +71,7 @@
 | Region   | Address             | Size      |
 |----------|---------------------|-----------|
 | Kernel   | `0x80200000`        | —         |
+| Memory   | `0x80200000` .. `0x80800000` | 8 MiB |
 | App 0    | `0x80400000`        | 128 KiB   |
 | App 1    | `0x80420000`        | 128 KiB   |
 | ...      | ...                 | ...       |
@@ -96,13 +97,13 @@ racho/
 │   │   ├── task/             # Task manager & context switch (task.rs / switch.S)
 │   │   ├── syscall/          # Syscall dispatcher (mod.rs / fs.rs / process.rs)
 │   │   ├── sync/             # UPSafeCell (uniprocessor-safe interior mutability)
-│   │   ├── mm/               # Memory management (heap_allocator / address types)
+│   │   ├── mm/               # Memory management (heap_allocator / frame_allocator / page_table / address)
 │   │   ├── loader.rs         # Loads app binaries from link_app.S into memory
 │   │   ├── timer.rs          # RISC-V timer (mtime), ~100 Hz tick
 │   │   ├── logging.rs        # Color-coded kernel logger
 │   │   ├── console.rs        # print!/println! via SBI console_putchar
 │   │   ├── sbi.rs            # SBI ecall wrappers (console, timer, shutdown)
-│   │   ├── boards/qemu.rs     # Board-specific constant: CLOCK_FREQ
+│   │   ├── boards/qemu.rs     # Board constants: CLOCK_FREQ, MEMORY_END
 │   │   └── lang_items.rs     # Panic handler
 │   ├── linker-qemu.ld        # Kernel linker script (base 0x80200000)
 │   ├── build.rs              # Generates link_app.S from user app binaries
@@ -174,15 +175,15 @@ cd os && make run    # builds + runs in one command
 make run             # top-level alias (requires pre-built os.bin)
 ```
 
-Current output (trap/task init still commented out in `main.rs:77–81`):
+Current output (trap/task init still commented out in `main.rs:79–83`):
 
 ```
 [ INFO] [kernel] Hello, world!
 heap_test passed!
-Panicked at src/main.rs:82 Unreachable in rust_main
+Panicked at src/main.rs:84 Unreachable in rust_main
 ```
 
-> Once lines 77–81 are uncommented, the kernel loads 4 user apps and runs the full time-sharing schedule:
+> Once lines 79–83 are uncommented, the kernel loads 4 user apps and runs the full time-sharing schedule:
 
 <details>
 <summary>Full multi-app output (after wiring up)</summary>
@@ -236,15 +237,31 @@ User-space apps call these via the `ecall` instruction (wrappers in [`user/src/s
 
 ## 🗺 Roadmap
 
+racho's userland design follows the **[Alpine Linux](https://alpinelinux.org/)** philosophy — lightweight, secure, and simple:
+
+| Layer        | Component                                          | Status |
+|-------------|----------------------------------------------------|--------|
+| C library   | [musl libc](https://musl.libc.org/)               | 🔲      |
+| Core utils  | [BusyBox](https://busybox.net/)                    | 🔲      |
+| Init system | [OpenRC](https://github.com/OpenRC/openrc) *(TBD)* | 🔲      |
+
 ### Short-term Goal
 
-- 🎯 **Run BusyBox** — extend the kernel with a file system, richer syscall support (`fork`, `exec`, `mmap`, etc.), and a proper process model to boot [BusyBox](https://busybox.net/) on racho.
+- 🎯 **Boot BusyBox on racho** — implement file system support, expand syscalls (`fork`, `exec`, `mmap`, `brk`, etc.), and build a minimal process model sufficient to run a statically-linked BusyBox with musl libc.
+
+### Medium-term Milestones
+
+- SV39 page table management — map kernel/user address spaces, set up `satp`
+- Virtual file system (VFS) layer
+- `fork` + `exec` process model
+- ELF loader for user-space executables
+- Signal handling
 
 ### Long-term Vision
 
-- Virtual memory / page table support
 - Multi-core support (SMP)
-- Networking stack
+- TCP/IP networking stack
+- Port OpenRC as init system
 - POSIX compatibility layer
 
 ---
@@ -256,7 +273,7 @@ This project follows the excellent **[rCore Tutorial Book v3](https://rcore-os.c
 - **Chapter 1** — Bare-metal Rust: remove `std`, ASM entry, `println!` via SBI
 - **Chapter 2** — Batch OS: trap handling, privilege levels, first syscalls, batch execution of multiple apps
 - **Chapter 3** — Time-sharing OS: timer interrupts, task switching, round-robin scheduling, preemptive multitasking
-- **Chapter 4** — Address space & paging: SV39 `VirtAddr`/`PhysAddr`/`PhysPageNum` types, ready for page table management
+- **Chapter 4** — Address space & paging: SV39 `VirtAddr`/`PhysAddr`/`PhysPageNum`/`VirtPageNum` types, `StackFrameAllocator` (with recycled frame reuse), and `PageTableEntry` with full `PTEFlags` (V/R/W/X/U/G/A/D)
 
 ---
 
