@@ -11,3 +11,5 @@ pub const KERNEL_HEAP_SIZE: usize = 0x30_0000;
 pub const PAGE_SIZE: usize = 0x1000;
 /// 用于存放PAGE的比特位数目(在0x1000大小的page size 中,只有三个比特位用于存放PAGE的offset参数)
 pub const PAGE_SIZE_BITS: usize = 0xc;
+
+pub use crate::boards::MEMORY_END;
