@@ -26,7 +26,10 @@ extern crate alloc;
 use core::arch::global_asm;
 use log::*;
 
-use crate::mm::heap_allocator::init_heap;
+use crate::mm::{
+    frame_allocator::{frame_allocator_test, init_frame_allocator},
+    heap_allocator::init_heap,
+};
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S"));
 
@@ -74,12 +77,21 @@ pub fn rust_main() -> ! {
     clear_bss();
     logging::init();
     info!("[kernel] Hello, world!");
+
+    // 初始化堆并测试堆内存可行性
     init_heap();
     heap_test();
-    // trap::init();
-    // loader::load_apps();
-    // trap::enable_timer_interrupt();
-    // timer::set_next_trigger();
-    // task::run_first_task();
+
+    //初始化内存分配器
+    init_frame_allocator();
+    frame_allocator_test();
+
+    // 运行应用程序
+    trap::init();
+    loader::load_apps();
+    trap::enable_timer_interrupt();
+    timer::set_next_trigger();
+    task::run_first_task();
+
     panic!("Unreachable in rust_main");
 }

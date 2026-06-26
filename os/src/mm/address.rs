@@ -67,7 +67,7 @@ impl From<VirtPageNum> for usize {
     }
 }
 
-/// define some methods for Addr
+/// define some methods for Addrs,ppns
 impl PhysAddr {
     /// 把物理地址向下取整到它所在的页号
     pub fn floor(&self) -> PhysPageNum {
@@ -110,6 +110,14 @@ impl VirtAddr {
     /// 该地址是否对齐
     pub fn aligned(&self) -> bool {
         self.page_offset() == 0
+    }
+}
+impl PhysPageNum {
+    /// 根据PPN计算PA,再把这连续的4096字节的页包装为一个可读写的`&mut [u8]`
+    /// 方便内核像操作普通数组一样访问整个内存页
+    pub fn get_bytes_array(&self) -> &'static mut [u8] {
+        let pa: PhysAddr = (*self).into();
+        unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut u8, PAGE_SIZE) }
     }
 }
 
