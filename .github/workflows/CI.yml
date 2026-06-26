@@ -16,12 +16,6 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@nightly
-        with:
-          targets: riscv64gc-unknown-none-elf
-          components: rust-src, llvm-tools-preview
-
-      - name: Install cargo-binutils
-        run: cargo install cargo-binutils
 
       - name: kernel test
         run: cd os && make run
