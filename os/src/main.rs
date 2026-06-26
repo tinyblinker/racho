@@ -71,6 +71,10 @@ fn heap_test() {
     println!("heap_test passed!");
 }
 
+// TODO: ch4-管理多级页表-多级页表管理(从这里开始)(昨天的核心完成点是跑通frame_allocator_test())
+// 页表基本数据结构与访问接口
+// 我们知道，SV39 多级页表是以节点为单位进行管理的。每个节点恰好存储在一个物理页帧中，它的位置可以用一个物理页号来表示。
+
 /// the rust entry-point of OS
 #[unsafe(no_mangle)]
 pub fn rust_main() -> ! {
