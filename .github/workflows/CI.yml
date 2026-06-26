@@ -15,14 +15,14 @@ jobs:
         run: sudo apt update && sudo apt install -y build-essential qemu-system-riscv64
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly
         with:
           targets: riscv64gc-unknown-none-elf
-          components: rust-src rust-objcopy
+          components: rust-src, llvm-tools-preview
 
-      - name: userspace build test
-        run : cd user ; make build ;
+      - name: Install cargo-binutils
+        run: cargo install cargo-binutils
 
       - name: kernel test
-        run: cd os ; make run ;
+        run: cd os && make run
 
