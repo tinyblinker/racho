@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4). Kernel boots on QEMU virt; trap/task/syscall/memory subsystems are implemented — being wired up in <code>main.rs</code>.</em>
+  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4). Boots on QEMU virt with full multi-app time-sharing: trap, task, syscall, and frame allocator are all wired up.</em>
 </p>
 
 ---
@@ -25,7 +25,7 @@
 - **Time-sharing scheduling** — round-robin scheduler with preemptive timer interrupts (~100 Hz)
 - **Trap handling** — full trap frame save/restore (32 GPRs + `sstatus` + `sepc`), dispatches interrupts, exceptions, and syscalls
 - **Syscall interface** — `write`, `exit`, `yield`, `get_time`
-- **Virtual memory** — SV39 paging primitives: page table entries (`PTEFlags` with V/R/W/X/U/G/A/D), frame allocator (`StackFrameAllocator` with recycling), and address type conversions (`VirtAddr`/`PhysAddr`/`PhysPageNum`/`VirtPageNum` with page alignment helpers)
+- **Virtual memory** — SV39 paging primitives: `PageTableEntry` with `PTEFlags` (V/R/W/X/U/G/A/D), `StackFrameAllocator` with recycled frame reuse, `FrameTracker` (RAII auto-dealloc), and address type conversions (`VirtAddr`/`PhysAddr`/`PhysPageNum`/`VirtPageNum` with page alignment helpers)
 - **User library** — `user_lib` crate for writing user-space apps with `println!`, ecall wrappers, and a linker script
 - **GDB debugging** — scripts for connecting `riscv64-elf-gdb` to QEMU
 - **CI pipeline** — GitHub Actions builds and runs the kernel in QEMU on every push
@@ -165,32 +165,20 @@ sudo apt install qemu-system-riscv64
 cd os && make build
 ```
 
-This compiles the 4 user-space apps, embeds them into the kernel via `link_app.S`, builds the kernel ELF, and strips it to `os/target/riscv64gc-unknown-none-elf/release/os.bin`.
+Compiles the 4 user-space apps, embeds them into the kernel via `link_app.S`, builds the kernel ELF, and strips it to `os/target/riscv64gc-unknown-none-elf/release/os.bin`.
 
 ### Run
 
 ```bash
 cd os && make run    # builds + runs in one command
-# or:
-make run             # top-level alias (requires pre-built os.bin)
 ```
 
-Current output (trap/task init still commented out in `main.rs:79–83`):
+Expected output:
 
 ```
 [ INFO] [kernel] Hello, world!
 heap_test passed!
-Panicked at src/main.rs:84 Unreachable in rust_main
-```
-
-> Once lines 79–83 are uncommented, the kernel loads 4 user apps and runs the full time-sharing schedule:
-
-<details>
-<summary>Full multi-app output (after wiring up)</summary>
-
-```
-[ INFO] [kernel] Hello, world!
-heap_test passed!
+frame_allocator_test passed!
 [ INFO] num_app = 4
 power_3 [10000/200000]
 power_3 [20000/200000]
@@ -202,8 +190,6 @@ power_5 [10000/140000]
 Test sleep OK!
 [ INFO] All applications completed!
 ```
-
-</details>
 
 ### Debug with GDB
 
@@ -273,7 +259,7 @@ This project follows the excellent **[rCore Tutorial Book v3](https://rcore-os.c
 - **Chapter 1** — Bare-metal Rust: remove `std`, ASM entry, `println!` via SBI
 - **Chapter 2** — Batch OS: trap handling, privilege levels, first syscalls, batch execution of multiple apps
 - **Chapter 3** — Time-sharing OS: timer interrupts, task switching, round-robin scheduling, preemptive multitasking
-- **Chapter 4** — Address space & paging: SV39 `VirtAddr`/`PhysAddr`/`PhysPageNum`/`VirtPageNum` types, `StackFrameAllocator` (with recycled frame reuse), and `PageTableEntry` with full `PTEFlags` (V/R/W/X/U/G/A/D)
+- **Chapter 4** — Address space & paging: SV39 `VirtAddr`/`PhysAddr`/`PhysPageNum`/`VirtPageNum` types, `StackFrameAllocator` (with recycled frame reuse + `frame_allocator_test`), `FrameTracker` (RAII auto-dealloc), and `PageTableEntry` with full `PTEFlags` (V/R/W/X/U/G/A/D)
 
 ---
 
