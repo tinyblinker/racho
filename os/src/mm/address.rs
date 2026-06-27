@@ -1,4 +1,9 @@
-use crate::config::{PAGE_SIZE, PAGE_SIZE_BITS};
+use core::fmt::{self, Debug, Formatter};
+
+use crate::{
+    config::{PAGE_SIZE, PAGE_SIZE_BITS, PTES_PER_PAGE},
+    mm::page_table::PageTableEntry,
+};
 
 /// Physical address
 const PA_WIDTH_SV39: usize = 56;
@@ -18,6 +23,28 @@ pub struct PhysPageNum(pub usize);
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtPageNum(pub usize);
+
+/// 为VA,PA,PPN,VPN实现Debug trait中的debug格式化字符串输出功能
+impl Debug for VirtAddr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("VA:{:#x}", self.0))
+    }
+}
+impl Debug for VirtPageNum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("VPN:{:#x}", self.0))
+    }
+}
+impl Debug for PhysAddr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("PA:{:#x}", self.0))
+    }
+}
+impl Debug for PhysPageNum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("PPN:{:#x}", self.0))
+    }
+}
 
 /// 实现互相转换
 impl From<usize> for PhysAddr {
@@ -116,8 +143,27 @@ impl PhysPageNum {
     /// 根据PPN计算PA,再把这连续的4096字节的页包装为一个可读写的`&mut [u8]`
     /// 方便内核像操作普通数组一样访问整个内存页
     pub fn get_bytes_array(&self) -> &'static mut [u8] {
-        let pa: PhysAddr = (*self).into();
+        let pa: PhysAddr = self.clone().into();
         unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut u8, PAGE_SIZE) }
+    }
+    pub fn get_pte_array(&self) -> &'static mut [PageTableEntry] {
+        let pa: PhysAddr = self.clone().into();
+        unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut PageTableEntry, PTES_PER_PAGE) }
+    }
+    pub fn get_mut<T>(&self) -> &'static mut T {
+        let pa: PhysAddr = self.clone().into();
+        unsafe { (pa.0 as *mut T).as_mut().unwrap() }
+    }
+}
+impl VirtPageNum {
+    pub fn indexes(&self) -> [usize; 3] {
+        let mut vpn = self.0;
+        let mut idx = [0usize; 3];
+        for i in (0..3).rev() {
+            idx[i] = vpn & 0x1ff; // 取出vpn末9位
+            vpn >>= 9;
+        }
+        idx
     }
 }
 
