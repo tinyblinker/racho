@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4). Boots on QEMU virt: multi-app time-sharing, frame allocator, and SV39 page table with map/unmap/translate are all wired up.</em>
+  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4). Boots on QEMU virt: multi-app time-sharing, frame allocator, SV39 page table, and `MemorySet` (address space management) are all wired up.</em>
 </p>
 
 ---
@@ -25,7 +25,7 @@
 - **Time-sharing scheduling** — round-robin scheduler with preemptive timer interrupts (~100 Hz)
 - **Trap handling** — full trap frame save/restore (32 GPRs + `sstatus` + `sepc`), dispatches interrupts, exceptions, and syscalls
 - **Syscall interface** — `write`, `exit`, `yield`, `get_time`
-- **Virtual memory** — SV39 paging: `PageTable` with 3-level walk (`find_pte`/`find_pte_create`), `map`/`unmap`/`translate`, `satp` token; `PageTableEntry` with `PTEFlags` (V/R/W/X/U/G/A/D); `StackFrameAllocator` (recycled frame reuse); `FrameTracker` (RAII auto-dealloc); `VirtPageNum.indexes()` decomposes VPN into 3-level indices
+- **Virtual memory** — SV39 paging: `MemorySet` (address space container), `MapArea` with `MapType` (Identical/Framed) & `MapPermission` (R/W/X/U) + `copy_data()`; `PageTable` with 3-level walk (`find_pte`/`find_pte_create`), `map`/`unmap`/`translate`, `satp` token; `PageTableEntry` with `PTEFlags` (V/R/W/X/U/G/A/D); `StackFrameAllocator` (recycled frame reuse); `FrameTracker` (RAII auto-dealloc); `VPNRange` (iterator over `VirtPageNum`); `VirtPageNum.indexes()` decomposes VPN into 3-level indices
 - **User library** — `user_lib` crate for writing user-space apps with `println!`, ecall wrappers, and a linker script
 - **GDB debugging** — scripts for connecting `riscv64-elf-gdb` to QEMU
 - **CI pipeline** — GitHub Actions builds and runs the kernel in QEMU on every push
@@ -97,7 +97,7 @@ racho/
 │   │   ├── task/             # Task manager & context switch (task.rs / switch.S)
 │   │   ├── syscall/          # Syscall dispatcher (mod.rs / fs.rs / process.rs)
 │   │   ├── sync/             # UPSafeCell (uniprocessor-safe interior mutability)
-│   │   ├── mm/               # Memory management (heap / frame_allocator / page_table / address)
+│   │   ├── mm/               # Memory management (heap / frame_allocator / memory_set / page_table / address)
 │   │   ├── loader.rs         # Loads app binaries from link_app.S into memory
 │   │   ├── timer.rs          # RISC-V timer (mtime), ~100 Hz tick
 │   │   ├── logging.rs        # Color-coded kernel logger
@@ -238,6 +238,8 @@ racho's userland design follows the **[Alpine Linux](https://alpinelinux.org/)**
 ### Medium-term Milestones
 
 - ~~SV39 page table management~~ — done: `PageTable` with `map`/`unmap`/`translate`, `satp` token
+- ~~Address space (`MemorySet`)~~ — done: `MapArea` with `MapType::Identical`/`Framed`, `MapPermission`, `copy_data()`
+- Wire `MemorySet` into kernel bootstrap — replace current direct-app-loading with page-table-based loading
 - Virtual file system (VFS) layer
 - `fork` + `exec` process model
 - ELF loader for user-space executables
@@ -259,7 +261,7 @@ This project follows the excellent **[rCore Tutorial Book v3](https://rcore-os.c
 - **Chapter 1** — Bare-metal Rust: remove `std`, ASM entry, `println!` via SBI
 - **Chapter 2** — Batch OS: trap handling, privilege levels, first syscalls, batch execution of multiple apps
 - **Chapter 3** — Time-sharing OS: timer interrupts, task switching, round-robin scheduling, preemptive multitasking
-- **Chapter 4** — Address space & paging: SV39 `VirtAddr`/`PhysAddr`/`PhysPageNum`/`VirtPageNum` types, `VirtPageNum.indexes()` (3-level VPN decomposition), `StackFrameAllocator` (with recycled frame reuse), `FrameTracker` (RAII auto-dealloc), `PageTableEntry` with `PTEFlags` (V/R/W/X/U/G/A/D), and full `PageTable` struct with `find_pte_create` (allocates intermediate PTEs), `find_pte` (read-only walk), `map`/`unmap`/`translate`, and `token()` (constructs `satp` CSR for SV39 mode)
+- **Chapter 4** — Address space & paging: `VirtAddr`/`PhysAddr`/`PhysPageNum`/`VirtPageNum` types, `VPNRange` (`SimpleRange<I>` with `Iterator` + `StepByOne` trait), `VirtPageNum.indexes()` (3-level VPN decomposition), `StackFrameAllocator` (recycled frame reuse), `FrameTracker` (RAII auto-dealloc), `PageTableEntry` with `PTEFlags` (V/R/W/X/U/G/A/D), `PageTable` struct (`find_pte_create` allocates intermediate PTEs, `find_pte` read-only walk, `map`/`unmap`/`translate`, `token()` constructs `satp` CSR), and `MemorySet` (address space container via `MapArea` with `MapType::Identical`/`Framed`, `MapPermission` R/W/X/U, and `copy_data()` for loading app binaries into frames)
 
 ---
 
