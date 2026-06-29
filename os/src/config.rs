@@ -13,5 +13,7 @@ pub const PAGE_SIZE: usize = 0x1000;
 pub const PAGE_SIZE_BITS: usize = 12;
 /// 每页的PTE数目
 pub const PTES_PER_PAGE: usize = 512;
+/// Trampoline映射地址
+pub const TRAMPOLINE: usize = usize::MAX - PAGE_SIZE + 1;
 
 pub use crate::boards::MEMORY_END;

@@ -2,12 +2,26 @@ use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
 use bitflags::bitflags;
 
+unsafe extern "C" {
+    safe fn stext();
+    safe fn etext();
+    safe fn srodata();
+    safe fn erodata();
+    safe fn sdata();
+    safe fn edata();
+    safe fn sbss_with_stack();
+    safe fn ebss();
+    safe fn ekernel();
+    safe fn trampoline();
+}
+
 use crate::{
-    config::PAGE_SIZE,
+    boards::{MEMORY_END, MMIO},
+    config::{PAGE_SIZE, TRAMPOLINE},
     mm::{
-        address::{PhysPageNum, StepByOne, VPNRange, VirtAddr, VirtPageNum},
+        address::{PhysAddr, PhysPageNum, StepByOne, VPNRange, VirtAddr, VirtPageNum},
         frame_allocator::{FrameTracker, frame_alloc},
-        page_table::{self, PageTable},
+        page_table::{self, PTEFlags, PageTable},
     },
 };
 
@@ -60,6 +74,8 @@ impl MapArea {
                 self.data_frames.insert(vpn, frame);
             }
         }
+        let pte_flags = PTEFlags::from_bits(self.map_perm.bits).unwrap();
+        page_table.map(vpn, ppn, pte_flags);
     }
     pub fn map(&mut self, page_table: &mut PageTable) {
         for vpn in self.vpn_range {
@@ -105,7 +121,7 @@ pub struct MemorySet {
     areas: Vec<MapArea>,
 }
 
-// TODO: 6.28日一直在实现这个结构体,(ch4-内核与应用的地址空间)后面继续完善
+// TODO: (done)6.28日一直在实现这个结构体,(ch4-内核与应用的地址空间)后面继续完善
 impl MemorySet {
     pub fn new_bare() -> Self {
         Self {
@@ -136,4 +152,104 @@ impl MemorySet {
         }
         self.areas.push(map_area);
     }
+    /// 把trampoline这段特殊代码映射进当前地址空间的页表里,但他不属于
+    /// 普通的memory areas管理体系
+    fn map_trampoline(&mut self) {
+        self.page_table.map(
+            VirtAddr::from(TRAMPOLINE).into(),
+            PhysAddr::from(trampoline as *const () as usize).into(),
+            PTEFlags::R | PTEFlags::X,
+        );
+    }
+    // NOTE: 6.29日完成了new_kernel()方法的实现
+    // 生成kernel的地址空间
+    pub fn new_kernel() -> Self {
+        let mut memory_set = Self::new_bare();
+        // map trampoline
+        memory_set.map_trampoline();
+        // map kernel sections
+        println!(
+            ".text [{:#x}, {:#x})",
+            stext as *const () as usize, etext as *const () as usize
+        );
+        println!(
+            ".rodata [{:#x}, {:#x})",
+            srodata as *const () as usize, erodata as *const () as usize
+        );
+        println!(
+            ".data [{:#x}, {:#x})",
+            sdata as *const () as usize, edata as *const () as usize
+        );
+        println!(
+            ".bss [{:#x}, {:#x})",
+            sbss_with_stack as *const () as usize, ebss as *const () as usize
+        );
+        println!("mapping .text section");
+        memory_set.push(
+            MapArea::new(
+                (stext as *const () as usize).into(),
+                (etext as *const () as usize).into(),
+                MapType::Identical,
+                MapPermission::R | MapPermission::X,
+            ),
+            None,
+        );
+        println!("mapping .rodata section");
+        memory_set.push(
+            MapArea::new(
+                (srodata as *const () as usize).into(),
+                (erodata as *const () as usize).into(),
+                MapType::Identical,
+                MapPermission::R,
+            ),
+            None,
+        );
+        println!("mapping .data section");
+        memory_set.push(
+            MapArea::new(
+                (sdata as *const () as usize).into(),
+                (edata as *const () as usize).into(),
+                MapType::Identical,
+                MapPermission::R | MapPermission::W,
+            ),
+            None,
+        );
+        println!("mapping .bss section");
+        memory_set.push(
+            MapArea::new(
+                (sbss_with_stack as *const () as usize).into(),
+                (ebss as *const () as usize).into(),
+                MapType::Identical,
+                MapPermission::R | MapPermission::W,
+            ),
+            None,
+        );
+        println!("mapping physical memory");
+        memory_set.push(
+            MapArea::new(
+                (ekernel as *const () as usize).into(),
+                MEMORY_END.into(),
+                MapType::Identical,
+                MapPermission::R | MapPermission::W,
+            ),
+            None,
+        );
+        println!("mapping memory-mapped registers");
+        for pairs in MMIO {
+            memory_set.push(
+                MapArea::new(
+                    pairs.0.into(),
+                    (pairs.0 + pairs.1).into(),
+                    MapType::Identical,
+                    MapPermission::R | MapPermission::W,
+                ),
+                None,
+            );
+        }
+        memory_set
+    }
+    // TODO: 6.30
+    // Including sections in elf and trampoline and TrapContext and user stack,
+    // also returns user_sp and entry point.
+    // pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize);
 }
