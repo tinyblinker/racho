@@ -248,7 +248,7 @@ impl MemorySet {
         }
         memory_set
     }
-    // TODO: 6.30
+    // TODO: 6.30 add nothing
     // Including sections in elf and trampoline and TrapContext and user stack,
     // also returns user_sp and entry point.
     // pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize);
