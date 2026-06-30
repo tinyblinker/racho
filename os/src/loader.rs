@@ -96,3 +96,21 @@ pub fn init_app_cx(app_id: usize) -> usize {
         USER_STACK[app_id].get_sp(),
     ))
 }
+
+/// get application data(截取为ELF格式)
+pub fn get_app_data(app_id: usize) -> &'static [u8] {
+    unsafe extern "C" {
+        safe fn _num_app();
+    }
+    let num_app_ptr = _num_app as *const () as *const usize;
+    let num_app = get_num_app();
+    // .add(1)因为要跳过第一个元数据(app_num()元数据为app的数量,后面依次才是地址)
+    let app_start = unsafe { core::slice::from_raw_parts(num_app_ptr.add(1), num_app + 1) };
+    assert!(app_id < num_app);
+    unsafe {
+        core::slice::from_raw_parts(
+            app_start[app_id] as *const u8,
+            app_start[app_id + 1] - app_start[app_id],
+        )
+    }
+}
