@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4). Boots on QEMU virt: multi-app time-sharing, frame allocator, SV39 page table, `MemorySet` with `new_kernel()` + `from_elf()` (ELF loader with guard page, user stack, heap, TrapContext mapping), ready for page-table-based user-space loading.</em>
+  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4). Boots on QEMU virt: multi-app time-sharing, frame allocator, SV39 page table enabled via `mm::init()` (writes `satp` + `sfence.vma`), `MemorySet` with `new_kernel()` + `from_elf()` + `active()` + `remap_test()`, `KERNEL_SPACE` global singleton.</em>
 </p>
 
 ---
@@ -25,7 +25,7 @@
 - **Time-sharing scheduling** — round-robin scheduler with preemptive timer interrupts (~100 Hz)
 - **Trap handling** — full trap frame save/restore (32 GPRs + `sstatus` + `sepc`), dispatches interrupts, exceptions, and syscalls
 - **Syscall interface** — `write`, `exit`, `yield`, `get_time`
-- **Virtual memory** — SV39 paging: `MemorySet::new_kernel()` builds kernel address space (maps .text/.rodata/.data/.bss/physical memory/MMIO/trampoline); `MemorySet::from_elf()` parses ELF (`xmas-elf`) → maps program `LOAD` segments with U flag + user stack (with guard page) + heap + `TrapContext` page at `TRAP_CONTEXT`; `MapArea` with `MapType` (Identical/Framed) & `MapPermission` (R/W/X/U) + `copy_data()`; `PageTable` with 3-level walk (`find_pte`/`find_pte_create`), `map`/`unmap`/`translate`, `satp` token; `PageTableEntry` with `PTEFlags` (V/R/W/X/U/G/A/D); `StackFrameAllocator` (recycled frame reuse); `FrameTracker` (RAII auto-dealloc); `VPNRange` (iterator over `VirtPageNum`); `VirtPageNum.indexes()` decomposes VPN into 3-level indices
+- **Virtual memory** — SV39 paging with runtime activation: `KERNEL_SPACE` (`Arc<UPSafeCell<MemorySet>>`) global singleton; `mm::init()` enables paging via `satp::write()` + `sfence.vma`; `MemorySet::active()` writes satp token; `MemorySet::remap_test()` verifies .text not writable, .rodata not writable, .data not executable; `MemorySet::new_kernel()` maps all kernel sections/.data/.bss/physical memory/MMIO/trampoline; `MemorySet::from_elf()` parses ELF (`xmas-elf`) → maps `LOAD` segments + user stack (guard page) + heap + `TrapContext`; `PageTableEntry` with `readable()`/`writable()`/`executable()` query methods; `MapArea` with `MapType` (Identical/Framed) & `MapPermission` (R/W/X/U) + `copy_data()`; `PageTable` with 3-level walk, `map`/`unmap`/`translate`; `StackFrameAllocator` (recycled); `FrameTracker` (RAII); `VPNRange` iterator; `VirtPageNum.indexes()` 3-level VPN decomposition
 - **User library** — `user_lib` crate for writing user-space apps with `println!`, ecall wrappers, and a linker script
 - **GDB debugging** — scripts for connecting `riscv64-elf-gdb` to QEMU
 - **CI pipeline** — GitHub Actions builds and runs the kernel in QEMU on every push
@@ -96,7 +96,7 @@ racho/
 │   │   ├── entry.asm         # ASM entry: _start (sets up boot stack)
 │   │   ├── config.rs         # Constants: MAX_APP_NUM, stack/heap sizes, PAGE_SIZE, PTES_PER_PAGE, TRAMPOLINE, TRAP_CONTEXT
 │   │   ├── link_app.S        # Generated: embeds user app binaries into .data
-│   │   ├── trap/             # Trap handler (mod.rs / context.rs / trap.S)
+│   │   ├── trap/             # Trap handler (mod.rs / context.rs / trap.S); context.rs has kernel_satp, kernel_sp, trap_handler
 │   │   ├── task/             # Task manager & context switch (task.rs / switch.S)
 │   │   ├── syscall/          # Syscall dispatcher (mod.rs / fs.rs / process.rs)
 │   │   ├── sync/             # UPSafeCell (uniprocessor-safe interior mutability)
@@ -241,11 +241,12 @@ racho's userland design follows the **[Alpine Linux](https://alpinelinux.org/)**
 ### Medium-term Milestones
 
 - ~~SV39 page table management~~ — done: `PageTable` with `map`/`unmap`/`translate`, `satp` token
-- ~~Address space (`MemorySet`)~~ — done: `new_kernel()` maps kernel sections + trampoline/MMIO; `from_elf()` loads ELF executables
-- Wire `MemorySet` into kernel bootstrap — replace `loader::load_apps()` with page-table-based ELF loading in `main.rs`
+- ~~Address space (`MemorySet`)~~ — done: `new_kernel()` + `from_elf()` + `active()` (satp write + sfence.vma) + `remap_test()` + `KERNEL_SPACE` global
+- Wire `mm::init()` into `main.rs` — replace manual heap/frame init with `mm::init()` which enables SV39 paging
+- Replace `loader::load_apps()` with `MemorySet::from_elf()` — page-table-based user-space loading
+- `__alltraps` use `TrapContext.kernel_satp` for page table switching
 - Virtual file system (VFS) layer
 - `fork` + `exec` process model
-- Signal handling
 
 ### Long-term Vision
 
@@ -263,7 +264,7 @@ This project follows the excellent **[rCore Tutorial Book v3](https://rcore-os.c
 - **Chapter 1** — Bare-metal Rust: remove `std`, ASM entry, `println!` via SBI
 - **Chapter 2** — Batch OS: trap handling, privilege levels, first syscalls, batch execution of multiple apps
 - **Chapter 3** — Time-sharing OS: timer interrupts, task switching, round-robin scheduling, preemptive multitasking
-- **Chapter 4** — Address space & paging: `VirtAddr`/`PhysAddr`/`PhysPageNum`/`VirtPageNum` types, `VPNRange` (`SimpleRange<I>` with `Iterator` + `StepByOne` trait), `VirtPageNum.indexes()` (3-level VPN decomposition), `StackFrameAllocator` (recycled frame reuse), `FrameTracker` (RAII auto-dealloc), `PageTableEntry` with `PTEFlags` (V/R/W/X/U/G/A/D), `PageTable` (`find_pte_create` allocates intermediate PTEs, `find_pte` read-only walk, `map`/`unmap`/`translate`, `token()` constructs `satp` CSR), `MemorySet` via `MapArea` (`MapType::Identical`/`Framed`, `MapPermission` R/W/X/U, `copy_data()`) — `new_kernel()` maps all kernel sections; `from_elf()` parses ELF with `xmas-elf`, maps `LOAD` segments (with U flag), user stack (with guard page), heap (`sbrk`), and `TrapContext` at `TRAP_CONTEXT` (page below trampoline), returning `(MemorySet, user_stack_top, entry_point)` — next: wire into kernel bootstrap
+- **Chapter 4** — Address space & paging: `VirtAddr`/`PhysAddr`/`PhysPageNum`/`VirtPageNum` types, `VPNRange` (`SimpleRange<I>` with `Iterator` + `StepByOne` trait), `VirtPageNum.indexes()` (3-level VPN decomposition), `StackFrameAllocator` (recycled frame reuse), `FrameTracker` (RAII auto-dealloc), `PageTableEntry` with `PTEFlags` (V/R/W/X/U/G/A/D) + query methods (`readable`/`writable`/`executable`), `PageTable` (`find_pte_create` allocates intermediate PTEs, `find_pte` read-only walk, `map`/`unmap`/`translate`, `token()` constructs `satp` CSR), `MemorySet` via `MapArea` — `new_kernel()` maps all kernel sections; `from_elf()` parses ELF with `xmas-elf`, maps `LOAD` segments (U flag), user stack (guard page), heap, `TrapContext`; `active()` enables SV39 paging (writes `satp` + `sfence.vma`); `remap_test()` verifies section permissions; `KERNEL_SPACE` global `Arc<UPSafeCell<MemorySet>>` singleton; `mm::init()` orchestrates heap + frame allocator init + paging activation
 
 ---
 
