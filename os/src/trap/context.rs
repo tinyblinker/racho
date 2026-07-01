@@ -8,6 +8,12 @@ pub struct TrapContext {
     pub sstatus: Sstatus,
     /// CSR spec
     pub sepc: usize,
+    /// Addr of Page Table
+    pub kernel_satp: usize,
+    /// kernel_stack
+    pub kernel_sp: usize,
+    /// Addr of trap_handler function
+    pub trap_handler: usize,
 }
 
 impl TrapContext {

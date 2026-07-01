@@ -1,6 +1,9 @@
-use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
+use alloc::{collections::btree_map::BTreeMap, sync::Arc};
 use bitflags::bitflags;
+use core::arch::asm;
+use lazy_static::lazy_static;
+use riscv::register::satp;
 
 unsafe extern "C" {
     safe fn stext();
@@ -15,6 +18,14 @@ unsafe extern "C" {
     safe fn trampoline();
 }
 
+lazy_static! {
+    /// 创建内核地址空间的全局实例
+    pub static ref KERNEL_SPACE: Arc<UPSafeCell<MemorySet>> = Arc::new(unsafe{
+        UPSafeCell::new(MemorySet::new_kernel())
+    });
+}
+
+use crate::sync::UPSafeCell;
 use crate::{
     boards::{MEMORY_END, MMIO},
     config::{PAGE_SIZE, TRAMPOLINE, TRAP_CONTEXT, USER_STACK_SIZE},
@@ -329,6 +340,50 @@ impl MemorySet {
             memory_set,
             user_stack_top,
             elf.header.pt2.entry_point() as usize,
+        )
+    }
+    // 激活地址空间管理
+    pub fn active(&self) {
+        let satp = self.page_table.token();
+        unsafe {
+            satp::write(satp);
+            // 因为内核页表建立后执行恒等映射,所以在开启页表后仍然能
+            // 正确访问内核地址获取指令
+            asm!("sfence.vma");
+        }
+    }
+    // 调用mm::init()后我们使能了内核动态内存分配,物理页帧管理
+    // ,还启用了分页模式进入了内核地址空间,之后通过mm::remap_test
+    // 来检查内核地址空间的多级页表是否被正确设置
+    #[allow(unused)]
+    pub fn remap_test() {
+        let mut kernel_space = KERNEL_SPACE.exclusive_access();
+        let mid_text: VirtAddr =
+            ((stext as *const () as usize + etext as *const () as usize) / 2).into();
+        let mid_rodata: VirtAddr =
+            ((srodata as *const () as usize + erodata as *const () as usize) / 2).into();
+        let mid_data: VirtAddr =
+            ((sdata as *const () as usize + edata as *const () as usize) / 2).into();
+        assert!(
+            !kernel_space
+                .page_table
+                .translate(mid_text.floor())
+                .unwrap()
+                .writable(),
+        );
+        assert!(
+            !kernel_space
+                .page_table
+                .translate(mid_rodata.floor())
+                .unwrap()
+                .writable(),
+        );
+        assert!(
+            !kernel_space
+                .page_table
+                .translate(mid_data.floor())
+                .unwrap()
+                .executable(),
         )
     }
 }
