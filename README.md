@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4). Boots on QEMU virt: multi-app time-sharing, frame allocator, SV39 page table enabled via `mm::init()` (writes `satp` + `sfence.vma`), `MemorySet` with `new_kernel()` + `from_elf()` + `active()` + `remap_test()`, `KERNEL_SPACE` global singleton.</em>
+  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4). Boots on QEMU virt: multi-app time-sharing, SV39 paging with `__alltraps`/`__restore` page table switching, `TaskControlBlock` with per-task `MemorySet` + `trap_cx_ppn` + `base_size`, `KERNEL_SPACE` global singleton.</em>
 </p>
 
 ---
@@ -23,7 +23,7 @@
 - **Bare-metal kernel** — runs directly on QEMU `virt` (RISC-V 64, Supervisor mode), no host OS, no `std`
 - **Batch processing** — loads and executes multiple user-space applications sequentially
 - **Time-sharing scheduling** — round-robin scheduler with preemptive timer interrupts (~100 Hz)
-- **Trap handling** — full trap frame save/restore (32 GPRs + `sstatus` + `sepc`), dispatches interrupts, exceptions, and syscalls
+- **Trap handling** — `__alltraps`/`__restore` with page table switching: saves context to `TrapContext`, reads `kernel_satp`/`trap_handler`/`kernel_sp` from it, switches to kernel page table (`csrw satp` + `sfence.vma`), `jr` to handler; `__restore` switches back to user page table, restores context, `sret`
 - **Syscall interface** — `write`, `exit`, `yield`, `get_time`
 - **Virtual memory** — SV39 paging with runtime activation: `KERNEL_SPACE` (`Arc<UPSafeCell<MemorySet>>`) global singleton; `mm::init()` enables paging via `satp::write()` + `sfence.vma`; `MemorySet::active()` writes satp token; `MemorySet::remap_test()` verifies .text not writable, .rodata not writable, .data not executable; `MemorySet::new_kernel()` maps all kernel sections/.data/.bss/physical memory/MMIO/trampoline; `MemorySet::from_elf()` parses ELF (`xmas-elf`) → maps `LOAD` segments + user stack (guard page) + heap + `TrapContext`; `PageTableEntry` with `readable()`/`writable()`/`executable()` query methods; `MapArea` with `MapType` (Identical/Framed) & `MapPermission` (R/W/X/U) + `copy_data()`; `PageTable` with 3-level walk, `map`/`unmap`/`translate`; `StackFrameAllocator` (recycled); `FrameTracker` (RAII); `VPNRange` iterator; `VirtPageNum.indexes()` 3-level VPN decomposition
 - **User library** — `user_lib` crate for writing user-space apps with `println!`, ecall wrappers, and a linker script
@@ -96,8 +96,8 @@ racho/
 │   │   ├── entry.asm         # ASM entry: _start (sets up boot stack)
 │   │   ├── config.rs         # Constants: MAX_APP_NUM, stack/heap sizes, PAGE_SIZE, PTES_PER_PAGE, TRAMPOLINE, TRAP_CONTEXT
 │   │   ├── link_app.S        # Generated: embeds user app binaries into .data
-│   │   ├── trap/             # Trap handler (mod.rs / context.rs / trap.S); context.rs has kernel_satp, kernel_sp, trap_handler
-│   │   ├── task/             # Task manager & context switch (task.rs / switch.S)
+│   │   ├── trap/             # Trap handler (mod.rs / context.rs / trap.S); trap.S supports satp switching
+│   │   ├── task/             # Task manager & TCB (memory_set + trap_cx_ppn + base_size per task) + __switch
 │   │   ├── syscall/          # Syscall dispatcher (mod.rs / fs.rs / process.rs)
 │   │   ├── sync/             # UPSafeCell (uniprocessor-safe interior mutability)
 │   │   ├── mm/               # Memory management (heap / frame_allocator / memory_set / page_table / address)
@@ -108,7 +108,7 @@ racho/
 │   │   ├── sbi.rs            # SBI ecall wrappers (console, timer, shutdown)
 │   │   ├── boards/qemu.rs     # Board constants: CLOCK_FREQ, MEMORY_END (128 MiB), MMIO
 │   │   └── lang_items.rs     # Panic handler
-│   ├── linker-qemu.ld        # Kernel linker script (base 0x80200000)
+│   ├── linker-qemu.ld        # Linker script: .text.trampoline section (page-aligned), base 0x80200000
 │   ├── build.rs              # Generates link_app.S from user app binaries
 │   ├── rust_objcopy.sh       # Strips kernel ELF → raw binary
 │   ├── rust-analyzer.toml
@@ -241,10 +241,10 @@ racho's userland design follows the **[Alpine Linux](https://alpinelinux.org/)**
 ### Medium-term Milestones
 
 - ~~SV39 page table management~~ — done: `PageTable` with `map`/`unmap`/`translate`, `satp` token
-- ~~Address space (`MemorySet`)~~ — done: `new_kernel()` + `from_elf()` + `active()` (satp write + sfence.vma) + `remap_test()` + `KERNEL_SPACE` global
-- Wire `mm::init()` into `main.rs` — replace manual heap/frame init with `mm::init()` which enables SV39 paging
+- ~~Address space (`MemorySet`)~~ — done: `new_kernel()` + `from_elf()` + `active()` + `remap_test()` + `KERNEL_SPACE`
+- ~~Trap-based page table switching~~ — done: `__alltraps`/`__restore` rewritten, `TaskControlBlock` carries `memory_set`/`trap_cx_ppn`/`base_size`
+- Wire `mm::init()` into `main.rs` — replace manual heap/frame init with unified `mm::init()` which enables SV39 paging
 - Replace `loader::load_apps()` with `MemorySet::from_elf()` — page-table-based user-space loading
-- `__alltraps` use `TrapContext.kernel_satp` for page table switching
 - Virtual file system (VFS) layer
 - `fork` + `exec` process model
 
@@ -264,7 +264,7 @@ This project follows the excellent **[rCore Tutorial Book v3](https://rcore-os.c
 - **Chapter 1** — Bare-metal Rust: remove `std`, ASM entry, `println!` via SBI
 - **Chapter 2** — Batch OS: trap handling, privilege levels, first syscalls, batch execution of multiple apps
 - **Chapter 3** — Time-sharing OS: timer interrupts, task switching, round-robin scheduling, preemptive multitasking
-- **Chapter 4** — Address space & paging: `VirtAddr`/`PhysAddr`/`PhysPageNum`/`VirtPageNum` types, `VPNRange` (`SimpleRange<I>` with `Iterator` + `StepByOne` trait), `VirtPageNum.indexes()` (3-level VPN decomposition), `StackFrameAllocator` (recycled frame reuse), `FrameTracker` (RAII auto-dealloc), `PageTableEntry` with `PTEFlags` (V/R/W/X/U/G/A/D) + query methods (`readable`/`writable`/`executable`), `PageTable` (`find_pte_create` allocates intermediate PTEs, `find_pte` read-only walk, `map`/`unmap`/`translate`, `token()` constructs `satp` CSR), `MemorySet` via `MapArea` — `new_kernel()` maps all kernel sections; `from_elf()` parses ELF with `xmas-elf`, maps `LOAD` segments (U flag), user stack (guard page), heap, `TrapContext`; `active()` enables SV39 paging (writes `satp` + `sfence.vma`); `remap_test()` verifies section permissions; `KERNEL_SPACE` global `Arc<UPSafeCell<MemorySet>>` singleton; `mm::init()` orchestrates heap + frame allocator init + paging activation
+- **Chapter 4** — Address space & paging: `VirtAddr`/`PhysAddr`/`PhysPageNum`/`VirtPageNum` types, `VPNRange` iterator, `VirtPageNum.indexes()`, `StackFrameAllocator` (recycled), `FrameTracker` (RAII), `PageTableEntry` + query methods (`readable`/`writable`/`executable`), `PageTable` (`find_pte_create`/`find_pte`/`map`/`unmap`/`translate`/`token`), `MemorySet` via `MapArea` — `new_kernel()` maps kernel sections; `from_elf()` loads ELF (`xmas-elf`) → user stack (guard page) + heap + `TrapContext`; `active()` writes `satp` + `sfence.vma`; `remap_test()` verifies section permissions; `KERNEL_SPACE` global `Arc<UPSafeCell<MemorySet>>`; `mm::init()` orchestrates init + paging activation; `TaskControlBlock` now carries `memory_set`/`trap_cx_ppn`/`base_size` per task; `__alltraps`/`__restore` rewritten with page table switching (`csrw satp` + `sfence.vma`), trampoline in `.text.trampoline` section
 
 ---
 
