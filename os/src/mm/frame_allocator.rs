@@ -7,7 +7,8 @@ use alloc::vec::Vec;
 use lazy_static::lazy_static;
 
 /// manage a frame which has the same lifecycle as the tracker
-/// 用RAII的思想,把PhysPageNum的生命周期绑定于FrameTracker上,方便管理
+/// Uses RAII: the lifecycle of a PhysPageNum is bound to a FrameTracker
+/// for convenient management
 pub struct FrameTracker {
     pub ppn: PhysPageNum,
 }
@@ -21,36 +22,36 @@ impl FrameTracker {
         Self { ppn }
     }
 }
-// 当一个FrameTracker生命周期结束被编译器回收的时候
-// 我们需要将他控制的物理页帧回收到FRAME_ALLOCATOR中
+// When a FrameTracker's lifetime ends and it is dropped by the compiler,
+// the physical frame it controls is recycled back into FRAME_ALLOCATOR
 impl Drop for FrameTracker {
     fn drop(&mut self) {
         frame_dealloc(self.ppn)
     }
 }
-// 为FrameTracker实现Debug trait,从能能格式化输出调试信息
+// Implement the Debug trait for FrameTracker for formatted debug output
 impl Debug for FrameTracker {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("FrameTracker:PPN:{:#x}", self.ppn.0))
     }
 }
 
-// 我们申明一个FrameAllocator Trait来描述一个物理页帧管理器需要提供哪些功能
-// 以物理页号为单位进行物理页帧的分配和回收
+// Define the FrameAllocator trait describing the interface for
+// physical frame allocation and deallocation (in units of PhysPageNum)
 trait FrameAllocator {
     fn new() -> Self;
     fn alloc(&mut self) -> Option<PhysPageNum>;
     fn dealloc(&mut self, ppn: PhysPageNum);
 }
 
-// 我们实现一种最简单的栈式物理页帧管理策略StackFrameAllocator
+// Implement a simple stack-based physical frame allocation strategy
 pub struct StackFrameAllocator {
-    current: usize, // 空闲内存的起始物理页号
-    end: usize,     // 空闲内存的结束物理页号
+    current: usize, // Starting physical page number of the free region
+    end: usize,     // Ending physical page number of the free region
     recycled: Vec<usize>,
 }
 
-// 为StackFrameAllocator实现init()
+// Initialize StackFrameAllocator
 impl StackFrameAllocator {
     pub fn init(&mut self, l: PhysPageNum, r: PhysPageNum) {
         self.current = l.0;
@@ -58,7 +59,7 @@ impl StackFrameAllocator {
     }
 }
 
-// 为StackFrameAllocator实现FrameAllocator的Trait
+// Implement the FrameAllocator trait for StackFrameAllocator
 impl FrameAllocator for StackFrameAllocator {
     fn new() -> Self {
         Self {
@@ -68,12 +69,12 @@ impl FrameAllocator for StackFrameAllocator {
         }
     }
     fn alloc(&mut self) -> Option<PhysPageNum> {
-        // 先检查回收的ppn中有没有能用的
+        // Check if there is a recycled PPN available
         if let Some(ppn) = self.recycled.pop() {
             Some(ppn.into())
         } else {
-            // 回收的ppn中没有能用的,那就看一下维护的空闲ppn区间((self.current,self.end])
-            // 能不能分一块出来
+            // No recycled PPNs available; try to allocate from the free region
+            // (self.current, self.end]
             if self.current == self.end {
                 None
             } else {
@@ -93,15 +94,16 @@ impl FrameAllocator for StackFrameAllocator {
     }
 }
 
-// 创建StackFrameAllocator的全局实例FRAME_ALLOCATOR
+// Create the global instance of StackFrameAllocator
 type FrameAllocatorImpl = StackFrameAllocator;
 lazy_static! {
     pub static ref FRAME_ALLOCATOR: UPSafeCell<FrameAllocatorImpl> =
         unsafe { UPSafeCell::new(FrameAllocatorImpl::new()) };
 }
 
-// 这里我们使用UPSafeCell<T>来包裹栈式物理页帧分配器,每次对该分配器进行操作之前,
-// 我们都需要先通过,FRAME_ALLOCATOR.exclusive_access()拿到分配器的可变借用
+// We wrap the stack-based frame allocator in a UPSafeCell<T>. Before any
+// operation on the allocator, we must call FRAME_ALLOCATOR.exclusive_access()
+// to obtain a mutable reference.
 pub fn init_frame_allocator() {
     unsafe extern "C" {
         safe fn ekernel();
@@ -112,10 +114,13 @@ pub fn init_frame_allocator() {
     );
 }
 
-// TODO: (finished)2026.6.25参考ch4-管理SV39多级页表-分配/回收物理页帧的接口
-// 明天从此处开始:验收标准->参考tutorials代码的frame_allocator_test函数
+// TODO: (finished) 2026.6.25 — Refer to ch4: managing SV39 multi-level page tables —
+// physical frame allocation and deallocation interface
+// Starting point for tomorrow: acceptance criteria -> refer to the
+// frame_allocator_test function in the tutorials code
 
-// 声明公开给其它内核模块调用的分配/回收物理页帧的接口
+// Public interface for physical frame allocation/deallocation exposed to
+// other kernel modules
 // alloc a frame
 pub fn frame_alloc() -> Option<FrameTracker> {
     FRAME_ALLOCATOR

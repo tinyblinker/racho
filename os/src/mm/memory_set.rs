@@ -19,7 +19,7 @@ unsafe extern "C" {
 }
 
 lazy_static! {
-    /// 创建内核地址空间的全局实例
+    /// Create the global kernel address space instance
     pub static ref KERNEL_SPACE: Arc<UPSafeCell<MemorySet>> = Arc::new(unsafe{
         UPSafeCell::new(MemorySet::new_kernel())
     });
@@ -101,9 +101,9 @@ impl MapArea {
         let mut current_vpn = self.vpn_range.get_start();
         let len = data.len();
         loop {
-            // 往后取最多一页数据,不满一页就直接取len就行
+            // Take at most one page of data at a time
             let src = &data[start..len.min(start + PAGE_SIZE)];
-            // 在vpn上取一块和src大小相同的dst数据
+            // Get a mutable slice of same size as src from the destination VPN
             let dst = &mut page_table
                 .translate(current_vpn)
                 .unwrap()
@@ -111,28 +111,31 @@ impl MapArea {
                 .get_bytes_array()[..src.len()];
             dst.copy_from_slice(src);
             start += PAGE_SIZE;
-            // 如果start大于数据总大小,就直接跳出循环,拷贝完成
+            // If start exceeds total data length, break out — copy complete
             if start >= len {
                 break;
             }
-            // 向后步进一页
+            // Advance to the next page
             current_vpn.step();
         }
     }
 }
 
 /// memory set structure, controls virtual-memory space
-/// 地址空间是一段有关联但不一定连续的逻辑段,
-/// 这种关联一般是指这些逻辑段组成的虚拟地址空间和
-/// 一个运行的程序绑定
-/// NOTE: 一个运行的应用程序对代码和数据的直接访问限制
-/// 在它关联的虚拟地址空间之内,这个地址空间就叫应用程序的地址空间
+///
+/// An address space consists of logical segments that are related but not
+/// necessarily contiguous. This relationship typically means that the virtual
+/// address space formed by these segments is bound to a running program.
+///
+/// NOTE: A running application's direct access to code and data is confined
+/// to its associated virtual address space — this is the application's address space.
 pub struct MemorySet {
-    page_table: PageTable, // 该地址空间的多级页表
+    page_table: PageTable, // The multi-level page table for this address space
     areas: Vec<MapArea>,
 }
 
-// TODO: (done)6.28日一直在实现这个结构体,(ch4-内核与应用的地址空间)后面继续完善
+// TODO: (done) Spent 6.28 implementing this struct; continue from ch4-kernel
+// and application address spaces.
 impl MemorySet {
     pub fn new_bare() -> Self {
         Self {
@@ -155,7 +158,7 @@ impl MemorySet {
             None,
         );
     }
-    /// 映射页表,构造地址空间
+    /// Map pages and construct the address space
     fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) {
         map_area.map(&mut self.page_table);
         if let Some(data) = data {
@@ -163,8 +166,8 @@ impl MemorySet {
         }
         self.areas.push(map_area);
     }
-    /// 把trampoline这段特殊代码映射进当前地址空间的页表里,但他不属于
-    /// 普通的memory areas管理体系
+    /// Map the trampoline code into the page table of the current address space.
+    /// The trampoline is not part of the normal memory areas management.
     fn map_trampoline(&mut self) {
         self.page_table.map(
             VirtAddr::from(TRAMPOLINE).into(),
@@ -172,8 +175,8 @@ impl MemorySet {
             PTEFlags::R | PTEFlags::X,
         );
     }
-    // NOTE: 6.29日完成了new_kernel()方法的实现
-    // 生成kernel的地址空间
+    // NOTE: new_kernel() implementation completed on 6.29
+    // Build the kernel's address space
     pub fn new_kernel() -> Self {
         let mut memory_set = Self::new_bare();
         // map trampoline
@@ -263,7 +266,8 @@ impl MemorySet {
     // Including sections in elf and trampoline and TrapContext and user stack,
     // also returns user_sp and entry point.
     // pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize);
-    // 根据一份ELF可执行文件,给用户程序创建一套完整的地址空间布局
+    // Build a complete address space layout for a user program from
+    // an ELF executable
     pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize) {
         let mut memory_set = Self::new_bare();
         // map trampoline
@@ -293,7 +297,7 @@ impl MemorySet {
                 }
                 let map_area = MapArea::new(start_va, end_va, MapType::Framed, map_perm);
                 max_end_vpn = map_area.vpn_range.get_end();
-                // elf.input其实就是输出elf的原始字节
+                // elf.input contains the raw ELF bytes
                 memory_set.push(
                     map_area,
                     Some(&elf.input[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize]),
@@ -305,7 +309,7 @@ impl MemorySet {
         let mut user_stack_bottom: usize = max_end_va.into();
         // add guard page
         user_stack_bottom += PAGE_SIZE;
-        // 构造用户栈地址空间
+        // Set up the user stack address space
         let user_stack_top = user_stack_bottom + USER_STACK_SIZE;
         memory_set.push(
             MapArea::new(
@@ -342,19 +346,21 @@ impl MemorySet {
             elf.header.pt2.entry_point() as usize,
         )
     }
-    // 激活地址空间管理
+    // Activate the address space management
     pub fn active(&self) {
         let satp = self.page_table.token();
         unsafe {
             satp::write(satp);
-            // 因为内核页表建立后执行恒等映射,所以在开启页表后仍然能
-            // 正确访问内核地址获取指令
+            // Since the kernel page table uses identity mapping, after paging
+            // is enabled we can still correctly access kernel addresses to
+            // fetch instructions
             asm!("sfence.vma");
         }
     }
-    // 调用mm::init()后我们使能了内核动态内存分配,物理页帧管理
-    // ,还启用了分页模式进入了内核地址空间,之后通过mm::remap_test
-    // 来检查内核地址空间的多级页表是否被正确设置
+    // After calling mm::init(), we have enabled kernel dynamic memory allocation,
+    // physical frame management, and switched to paging mode to enter the kernel
+    // address space. Then mm::remap_test verifies that the kernel's multi-level
+    // page tables are set up correctly.
     #[allow(unused)]
     pub fn remap_test() {
         let mut kernel_space = KERNEL_SPACE.exclusive_access();

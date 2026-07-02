@@ -18,7 +18,7 @@ mod page_table;
 pub fn init() {
     heap_allocator::init_heap();
     frame_allocator::init_frame_allocator();
-    // NOTE: 内核页表是如何建立映射的(TOPIC)
-    // 开启SV39分页模式
+    // NOTE: How the kernel page table is set up (TOPIC)
+    // Activate SV39 paging mode
     KERNEL_SPACE.exclusive_access().active();
 }

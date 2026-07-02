@@ -7,7 +7,8 @@ use crate::mm::{
     frame_allocator::{FrameTracker, frame_alloc},
 };
 
-// 用bitflags宏把u8封装成一个标志位的集合类型:支持一些集合运算
+// Use the `bitflags` macro to wrap a u8 into a flag set type,
+// supporting set operations like union and intersection
 bitflags! {
     pub struct PTEFlags: u8{
         const V = 1 << 0;
@@ -21,14 +22,14 @@ bitflags! {
     }
 }
 
-// 接下来实现页表项PageTableEntry
+// Page Table Entry (PTE) implementation
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct PageTableEntry {
     pub bits: usize,
 }
 
-// 为页表项添加一些methods
+// Methods for PageTableEntry
 impl PageTableEntry {
     pub fn new(ppn: PhysPageNum, flags: PTEFlags) -> Self {
         Self {
@@ -60,9 +61,10 @@ impl PageTableEntry {
 
 // page table structure
 pub struct PageTable {
-    // 保存它根节点的物理页号root_ppn(此作为区分不同物理页表的区分方式)
+    // Stores the physical page number of the root node (uniquely identifies
+    // each physical page table)
     root_ppn: PhysPageNum,
-    // frames保存了所有节点(包括根节点),所在的物理页帧
+    // All physical frames held by page table nodes (including the root)
     frames: Vec<FrameTracker>,
 }
 impl PageTable {
@@ -85,11 +87,13 @@ impl PageTable {
             }
             if !pte.is_valid() {
                 let frame = frame_alloc().unwrap();
-                // R=W=X=0 在 Sv39 中意味着:这不是最终映射,而是"下一张页表在哪里"
+                // R=W=X=0 in Sv39 means: this is not a leaf PTE;
+                // it points to the next-level page table
                 *pte = PageTableEntry::new(frame.ppn, PTEFlags::V);
                 self.frames.push(frame);
             }
-            // SV39中每次查询PageTableEntry都用的是上一次查询(第一次用根)的地址作为基准
+            // In SV39, each page table walk uses the PPN from the previous
+            // level (starting with the root) as the base for the next lookup
             ppn = pte.ppn();
         }
         result
@@ -104,16 +108,18 @@ impl PageTable {
                 result = Some(pte);
                 break;
             }
-            // 映射'中途'出现非法PTE,直接跳过并返回None,操作失败
+            // An invalid PTE encountered mid-walk means the mapping does
+            // not exist; skip it and return None, the operation fails
             if !pte.is_valid() {
                 return None;
             }
-            // SV39中每次查询PageTableEntry都用的是上一次查询(第一次用根)的地址作为基准
+            // In SV39, each page table walk uses the PPN from the previous
+            // level (starting with the root) as the base for the next lookup
             ppn = pte.ppn();
         }
         result
     }
-    // 在多级页表中插入和删除键值对
+    // Insert and remove key-value pairs in the multi-level page table
     #[allow(unused)]
     pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) {
         let pte = self.find_pte_create(vpn).unwrap();
@@ -122,7 +128,7 @@ impl PageTable {
             "vpn {:?} is mapped(valid) before mapping",
             vpn
         );
-        // 创建新的PTE,完成一次map
+        // Create a new PTE, completing the map operation
         *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
     }
     #[allow(unused)]
@@ -133,14 +139,15 @@ impl PageTable {
             "vpn {:?} is unmapped(invalid) before unmapping",
             vpn
         );
-        // 清空PTE,完成一次unmap
+        // Clear the PTE, completing the unmap operation
         *pte = PageTableEntry::empty();
     }
-    // 手动查询页表
+    // Manually walk the page table to translate a virtual page
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.find_pte(vpn).map(|pte| *pte)
     }
-    // 构造RISCV的satp寄存器值(选择SV39分页模式,设置root_ppn)
+    // Construct the RISC-V satp register value:
+    // SV39 paging mode (8), ASID=0, and the root PPN
     // | MODE | ASID | PPN |
     // | 4bit | 16bit | 44bit |
     pub fn token(&self) -> usize {

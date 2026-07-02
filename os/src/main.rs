@@ -78,15 +78,15 @@ pub fn rust_main() -> ! {
     logging::init();
     info!("[kernel] Hello, world!");
 
-    // 初始化堆并测试堆内存可行性
+    // Initialize the kernel heap and run a heap memory test
     init_heap();
     heap_test();
 
-    //初始化内存分配器
+    // Initialize the physical frame allocator
     init_frame_allocator();
     frame_allocator_test();
 
-    // 运行应用程序
+    // Run user applications
     trap::init();
     loader::load_apps();
     trap::enable_timer_interrupt();

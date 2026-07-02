@@ -24,7 +24,7 @@ pub struct PhysPageNum(pub usize);
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtPageNum(pub usize);
 
-/// 为VA,PA,PPN,VPN实现Debug trait中的debug格式化字符串输出功能
+/// Implement Debug trait formatting for VirtAddr, PhysAddr, VPN, and PPN
 impl Debug for VirtAddr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("VA:{:#x}", self.0))
@@ -46,7 +46,7 @@ impl Debug for PhysPageNum {
     }
 }
 
-/// 实现互相转换
+/// Conversion implementations between address types
 impl From<usize> for PhysAddr {
     fn from(v: usize) -> Self {
         Self(v & ((1 << PA_WIDTH_SV39) - 1))
@@ -77,8 +77,9 @@ impl From<PhysPageNum> for usize {
         v.0
     }
 }
-///在 Sv39（RISC-V 64 位分页模式）里，“虚拟地址符号扩展（sign extension）”指的是：
-///把 39 位虚拟地址当作“有符号数”，并把第 38 位（最高有效位）复制填充到高 64 位，从而形成一个合法的 64 位地址表示。
+/// In Sv39 (RISC-V 64-bit paging), "virtual address sign extension" means:
+/// the 39-bit virtual address is treated as a signed number; bit 38 (the MSB)
+/// is replicated into the upper bits to form a valid 64-bit address.
 impl From<VirtAddr> for usize {
     fn from(v: VirtAddr) -> Self {
         if v.0 >= (1 << (VA_WIDTH_SV39 - 1)) {
@@ -96,11 +97,11 @@ impl From<VirtPageNum> for usize {
 
 /// define some methods for Addrs,ppns
 impl PhysAddr {
-    /// 把物理地址向下取整到它所在的页号
+    /// Round down the physical address to the page number it resides in
     pub fn floor(&self) -> PhysPageNum {
         PhysPageNum(self.0 / PAGE_SIZE)
     }
-    /// 把物理地址向上取整到“覆盖它所需要的最小页号”
+    /// Round up the physical address to the smallest page number that covers it
     pub fn ceil(&self) -> PhysPageNum {
         if self.0 == 0 {
             PhysPageNum(0)
@@ -108,21 +109,21 @@ impl PhysAddr {
             PhysPageNum((self.0 - 1 + PAGE_SIZE) / PAGE_SIZE)
         }
     }
-    /// 页内偏移
+    /// Offset within the page
     pub fn page_offset(&self) -> usize {
         self.0 & (PAGE_SIZE - 1)
     }
-    /// 该地址是否对齐
+    /// Whether the address is page-aligned
     pub fn aligned(&self) -> bool {
         self.page_offset() == 0
     }
 }
 impl VirtAddr {
-    /// 把物理地址向下取整到它所在的页号
+    /// Round down the virtual address to the page number it resides in
     pub fn floor(&self) -> VirtPageNum {
         VirtPageNum(self.0 / PAGE_SIZE)
     }
-    /// 把物理地址向上取整到“覆盖它所需要的最小页号”
+    /// Round up the virtual address to the smallest page number that covers it
     pub fn ceil(&self) -> VirtPageNum {
         if self.0 == 0 {
             VirtPageNum(0)
@@ -130,18 +131,19 @@ impl VirtAddr {
             VirtPageNum((self.0 - 1 + PAGE_SIZE) / PAGE_SIZE)
         }
     }
-    /// 页内偏移
+    /// Offset within the page
     pub fn page_offset(&self) -> usize {
         self.0 & (PAGE_SIZE - 1)
     }
-    /// 该地址是否对齐
+    /// Whether the address is page-aligned
     pub fn aligned(&self) -> bool {
         self.page_offset() == 0
     }
 }
 impl PhysPageNum {
-    /// 根据PPN计算PA,再把这连续的4096字节的页包装为一个可读写的`&mut [u8]`
-    /// 方便内核像操作普通数组一样访问整个内存页
+    /// Compute the physical address from PPN, then expose the whole 4096-byte
+    /// page as a readable/writable `&mut [u8]`, allowing the kernel to access
+    /// the entire page like a normal array.
     pub fn get_bytes_array(&self) -> &'static mut [u8] {
         let pa: PhysAddr = self.clone().into();
         unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut u8, PAGE_SIZE) }
@@ -160,17 +162,17 @@ impl VirtPageNum {
         let mut vpn = self.0;
         let mut idx = [0usize; 3];
         for i in (0..3).rev() {
-            idx[i] = vpn & 0x1ff; // 取出vpn末9位
+            idx[i] = vpn & 0x1ff; // extract the lowest 9 bits of vpn
             vpn >>= 9;
         }
         idx
     }
 }
 
-/// 地址和页号之间的相互转换
+/// Conversion between addresses and page numbers
 impl From<PhysAddr> for PhysPageNum {
     fn from(v: PhysAddr) -> Self {
-        // 断言地址是页对齐的
+        // Assert that the address is page-aligned
         assert_eq!(v.page_offset(), 0);
         v.floor()
     }
@@ -182,7 +184,7 @@ impl From<PhysPageNum> for PhysAddr {
 }
 impl From<VirtAddr> for VirtPageNum {
     fn from(v: VirtAddr) -> Self {
-        // 断言虚拟地址是页对齐的
+        // Assert that the virtual address is page-aligned
         assert_eq!(v.page_offset(), 0);
         v.floor()
     }
@@ -193,7 +195,7 @@ impl From<VirtPageNum> for VirtAddr {
     }
 }
 
-/// 实现VPNRange
+/// VPNRange implementation
 pub trait StepByOne {
     fn step(&mut self);
 }
@@ -202,8 +204,8 @@ impl StepByOne for VirtPageNum {
         self.0 += 1
     }
 }
-// where 是对泛型类型参数添加约束(Bounds)
-// 只有泛型实现了这几个trait才能继续参与计算
+// `where` adds trait bounds on generic type parameters.
+// Only types implementing these traits can participate in the range operations.
 #[derive(Copy, Clone)]
 /// a simple range structure for type T
 pub struct SimpleRange<T>
@@ -229,7 +231,7 @@ where
     }
 }
 
-// 为simplerange实现迭代器trait
+// Implement the Iterator trait for SimpleRange
 impl<T> IntoIterator for SimpleRange<T>
 where
     T: StepByOne + Copy + PartialEq + PartialOrd + Debug,

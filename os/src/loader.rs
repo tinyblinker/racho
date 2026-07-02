@@ -48,7 +48,7 @@ pub fn get_num_app() -> usize {
     unsafe { (_num_app as *const usize).read_volatile() }
 }
 
-/// 得到第i个baseAddress位置的address
+/// Get the base address of the i-th application
 pub fn get_base_i(app_id: usize) -> usize {
     APP_BASE_ADDRESS + app_id * APP_SIZE_LIMIT
 }
@@ -65,7 +65,7 @@ pub fn load_apps() {
     // load apps
     for i in 0..num_app {
         let base_i = get_base_i(i);
-        // 清除要放得内存空间的存储信息
+        // Clear the memory region where the app will be loaded
         for addr in base_i..(base_i + APP_SIZE_LIMIT) {
             unsafe {
                 (addr as *mut u8).write_volatile(0);
@@ -97,14 +97,15 @@ pub fn init_app_cx(app_id: usize) -> usize {
     ))
 }
 
-/// get application data(截取为ELF格式)
+/// Get application data (raw ELF bytes)
 pub fn get_app_data(app_id: usize) -> &'static [u8] {
     unsafe extern "C" {
         safe fn _num_app();
     }
     let num_app_ptr = _num_app as *const () as *const usize;
     let num_app = get_num_app();
-    // .add(1)因为要跳过第一个元数据(app_num()元数据为app的数量,后面依次才是地址)
+    // .add(1) skips the first metadata element (which stores the app count);
+    // subsequent elements are base addresses of each app
     let app_start = unsafe { core::slice::from_raw_parts(num_app_ptr.add(1), num_app + 1) };
     assert!(app_id < num_app);
     unsafe {
