@@ -6,13 +6,17 @@
 //!
 //! Every task or process has a memory_set to control its virtual memory.
 
-use crate::mm::memory_set::KERNEL_SPACE;
-
 mod address;
-pub mod frame_allocator;
-pub mod heap_allocator;
+mod frame_allocator;
+mod heap_allocator;
 mod memory_set;
 mod page_table;
+
+use crate::mm::memory_set::KERNEL_SPACE;
+pub use address::PhysPageNum;
+pub use frame_allocator::{frame_allocator_test, init_frame_allocator};
+pub use heap_allocator::init_heap;
+pub use memory_set::MemorySet;
 
 /// initiate the heap allocator, frame allocator and kernel space
 pub fn init() {

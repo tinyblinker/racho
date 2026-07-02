@@ -26,10 +26,7 @@ extern crate alloc;
 use core::arch::global_asm;
 use log::*;
 
-use crate::mm::{
-    frame_allocator::{frame_allocator_test, init_frame_allocator},
-    heap_allocator::init_heap,
-};
+use crate::mm::{frame_allocator_test, init_frame_allocator, init_heap};
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S"));
 
