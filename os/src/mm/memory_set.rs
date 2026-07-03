@@ -25,6 +25,7 @@ lazy_static! {
     });
 }
 
+use crate::mm::page_table::PageTableEntry;
 use crate::sync::UPSafeCell;
 use crate::{
     boards::{MEMORY_END, MMIO},
@@ -356,6 +357,9 @@ impl MemorySet {
             // fetch instructions
             asm!("sfence.vma");
         }
+    }
+    pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
+        self.page_table.translate(vpn)
     }
     // After calling mm::init(), we have enabled kernel dynamic memory allocation,
     // physical frame management, and switched to paging mode to enter the kernel
