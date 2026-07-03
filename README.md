@@ -1,20 +1,53 @@
 <p align="center">
-  <img src="https://img.shields.io/github/stars/shyweeds/racho?style=social" alt="Stars">
-  <a href="https://github.com/shyweeds/racho/actions/workflows/CI.yml"><img src="https://github.com/shyweeds/racho/actions/workflows/CI.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/rustc-nightly-orange.svg" alt="Rustc">
-  <img src="https://img.shields.io/badge/arch-riscv64-blue.svg" alt="RISC-V 64">
-  <img src="https://img.shields.io/badge/license-GPLv2-blue.svg" alt="License">
+  <a href="https://github.com/shyweeds/racho/stargazers">
+    <img src="https://img.shields.io/github/stars/shyweeds/racho?style=for-the-badge&color=f5c842&labelColor=1e1e2e" alt="Stars">
+  </a>
+  <a href="https://github.com/shyweeds/racho/actions/workflows/CI.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/shyweeds/racho/CI.yml?style=for-the-badge&branch=main&color=89b4fa&labelColor=1e1e2e" alt="CI">
+  </a>
+  <img src="https://img.shields.io/badge/rustc-nightly-f38ba8?style=for-the-badge&logo=rust&labelColor=1e1e2e" alt="Rust">
+  <img src="https://img.shields.io/badge/RISC--V--64-89dceb?style=for-the-badge&logo=riscv&labelColor=1e1e2e" alt="RISC-V 64">
+  <img src="https://img.shields.io/badge/license-GPLv2-a6e3a1?style=for-the-badge&labelColor=1e1e2e" alt="License">
 </p>
 
 <h1 align="center">🌾 racho</h1>
 
 <p align="center">
-  <strong>A toy operating system kernel written in Rust for RISC-V 64 — from bare-metal boot to SV39 paging, aiming for an Alpine-like userland with musl + BusyBox</strong>
+  <strong>A Rust kernel for RISC-V 64 — from bare-metal to SV39 paging, progressive refactoring toward a <a href="https://github.com/asterinas/asterinas">framekernel</a> architecture with an Alpine-like userland</strong>
 </p>
 
 <p align="center">
-  <em>Built along the <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4). Boots on QEMU virt: ELF-based task loading via `MemorySet::from_elf()`, per-task page table with `TaskControlBlock` (memory_set + trap_cx_ppn + base_size), `trap_handler → trap_return → __restore` trampoline flow with full satp switching, `KERNEL_SPACE` global singleton.</em>
+  <sub>Built along <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4) · ELF task loading · per-task page tables · trampoline satp switching · `KERNEL_SPACE` singleton</sub>
 </p>
+
+---
+
+## 🎯 Design Philosophy & Architecture Goal
+
+racho is evolving toward the **[framekernel](https://github.com/asterinas/asterinas)** architecture pioneered by [Asterinas](https://github.com/asterinas/asterinas) — a novel OS architecture that achieves monolithic-kernel performance while enforcing microkernel-like separation between safe and unsafe code:
+
+```
+┌──────────────────────────────────────┐
+│          Safe Kernel (core)           │  100% safe Rust
+│   syscall / fs / net / task / mm ... │
+├──────────────────────────────────────┤
+│       Framework (ostd / hal)          │  Minimal unsafe Rust
+│   page table / trap / context switch  │  Small, auditable TCB
+├──────────────────────────────────────┤
+│           RustSBI (M-mode)            │
+└──────────────────────────────────────┘
+```
+
+The current codebase follows the rCore monolithic structure. The medium-term refactoring goal is to extract a thin **unsafe framework layer** (akin to Asterinas's OSTD) that encapsulates all `unsafe` operations — page table manipulation, context switching, trap entry/exit, and hardware interaction — while the rest of the kernel is written entirely in safe Rust.
+
+### Why Framekernel?
+
+| Aspect | Traditional Monolithic | Framekernel |
+|--------|----------------------|-------------|
+| **Memory safety** | Unsafe Rust pervasive | Unsafe confined to thin framework |
+| **TCB size** | Entire kernel | Framework layer only (~few KLOC) |
+| **Performance** | Direct function calls | Direct function calls (not IPC) |
+| **Auditability** | Hard to isolate | Framework is small & explicit |
 
 ---
 
@@ -251,6 +284,7 @@ racho's userland design follows the **[Alpine Linux](https://alpinelinux.org/)**
 
 ### Long-term Vision
 
+- **Framekernel refactoring** — extract unsafe framework layer (page tables, trap, context switch) from safe kernel core, following Asterinas's OSTD/kernel split
 - Multi-core support (SMP)
 - TCP/IP networking stack
 - Port OpenRC as init system
@@ -266,6 +300,8 @@ This project follows the excellent **[rCore Tutorial Book v3](https://rcore-os.c
 - **Chapter 2** — Batch OS: trap handling, privilege levels, first syscalls, batch execution of multiple apps
 - **Chapter 3** — Time-sharing OS: timer interrupts, task switching, round-robin scheduling, preemptive multitasking
 - **Chapter 4** — Address space & paging: Full integration achieved. `TaskControlBlock::new()` calls `MemorySet::from_elf()` → ELF parsing (`xmas-elf`) → maps LOAD segments + user stack (guard page) + heap + TrapContext + kernel stack in `KERNEL_SPACE` → populates `TrapContext` (entry/sp/kernel_satp/kernel_sp/trap_handler). `trap_handler()` (returns `!`) → `trap_return()` (sets `stvec` to trampoline, computes `__restore` VA, passes `a0=TrapContext`/`a1=user_satp`) → `__restore` (`csrw satp` + `sfence.vma` → restore → `sret`). `TaskManager` uses `Vec<TaskControlBlock>` with `current_user_token()`/`current_trap_cx()`. `TaskContext::goto_trap_return()` replaces `goto_restore()`. `kernel_stack_position()` computes virtual addresses from `TRAMPOLINE`. `trap_from_kernel()` catches kernel-mode traps. `mm::init()` orchestrates heap + frame allocator + paging activation via `KERNEL_SPACE.active()`
+
+The **[framekernel](https://asterinas.github.io/book/kernel/the-framekernel-architecture.html)** architecture target is inspired by [Asterinas](https://github.com/asterinas/asterinas), a production-grade Rust OS kernel that confines unsafe code to a small, auditable framework (OSTD) while keeping the rest of the kernel in safe Rust.
 
 ---
 
