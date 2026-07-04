@@ -307,4 +307,4 @@ The **[framekernel](https://asterinas.github.io/book/kernel/the-framekernel-arch
 
 ## 📄 License
 
-[GPLv2](LICENSE) © 2026 shyweeds
+[GPLv2](LICENSE) © 2026 tinyblinker
