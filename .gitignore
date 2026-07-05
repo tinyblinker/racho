@@ -2,3 +2,4 @@
 /os/target
 /user/target
 /os/src/link_app.S
+/.nix-tools
