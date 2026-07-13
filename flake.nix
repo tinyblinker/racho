@@ -5,24 +5,26 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs }:
+  outputs =
+    { self, nixpkgs }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
       fhs = pkgs.buildFHSEnv {
         name = "racho-fhs";
-        targetPkgs = pkgs: with pkgs; [
-          rustup
-          qemu
-          python3
-          git
-          gdb
-          gcc
-          zlib
-          openssl
-          pkg-config
-          cacert
-        ];
+        targetPkgs =
+          pkgs: with pkgs; [
+            rustup
+            qemu
+            python3
+            git
+            gdb
+            gcc
+            zlib
+            openssl
+            pkg-config
+            cacert
+          ];
         runScript = "bash";
         profile = ''
           echo "==> racho dev shell (FHS)"
