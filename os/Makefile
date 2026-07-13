@@ -18,9 +18,10 @@ BOOTLOADER := ../bootloader/$(SBI)-$(BOARD).bin
 # KERNEL ENTRY
 KERNEL_ENTRY_PA := 0x80200000
 
-# Binutils
-OBJDUMP := rust-objdump --arch-name=riscv64
-OBJCOPY := rust-objcopy --binary-architecture=riscv64
+# Binutils (from llvm-tools component, resolved via rustc sysroot)
+LLVM_TOOLS := $(shell rustc --print sysroot)/lib/rustlib/$(shell rustc -vV | sed -n 's/^host: //p')/bin
+OBJDUMP := $(LLVM_TOOLS)/llvm-objdump
+OBJCOPY := $(LLVM_TOOLS)/llvm-objcopy
 
 # Disassembly
 DISASM ?= -x
@@ -28,10 +29,9 @@ DISASM ?= -x
 build: env $(KERNEL_BIN)
 
 env:
-	(rustup target list | grep "riscv64gc-unknown-none-elf (installed)") || rustup target add $(TARGET)
-	cargo install cargo-binutils
-	rustup component add rust-src
-	rustup component add llvm-tools-preview
+	@echo "Toolchain: $$(rustup show active-toolchain 2>/dev/null || echo 'not active')"
+	@echo "Target:    $$(rustup target list --installed | grep $(TARGET) || echo '$(TARGET) not installed')"
+	@echo "HINT:      ensure rust-toolchain.toml is effective (cargo --version in repo root)"
 
 $(KERNEL_BIN): kernel
 	@$(OBJCOPY) $(KERNEL_ELF) --strip-all -O binary $@
