@@ -10,19 +10,19 @@
   <img src="https://img.shields.io/badge/license-GPLv2-a6e3a1?style=for-the-badge&labelColor=1e1e2e" alt="License">
 </p>
 
-<h1 align="center">🌾 racho</h1>
+<h1 align="center">  racho</h1>
 
 <p align="center">
   <strong>A Rust kernel for RISC-V 64 — from bare-metal to SV39 paging, progressive refactoring toward a <a href="https://github.com/asterinas/asterinas">framekernel</a> architecture with an Alpine-like userland</strong>
 </p>
 
 <p align="center">
-  <sub>Built along <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4) · ELF task loading · per-task page tables · trampoline satp switching · `KERNEL_SPACE` singleton</sub>
+  <sub>Built along <a href="https://rcore-os.cn/rCore-Tutorial-Book-v3/">rCore Tutorial</a> (Ch.1–4) · ELF task loading · per-task page tables · trampoline satp switching · <code>KERNEL_SPACE</code> singleton</sub>
 </p>
 
 ---
 
-## 🎯 Design Philosophy & Architecture Goal
+##   Design Philosophy & Architecture Goal
 
 racho is evolving toward the **[framekernel](https://github.com/asterinas/asterinas)** architecture pioneered by [Asterinas](https://github.com/asterinas/asterinas) — a novel OS architecture that achieves monolithic-kernel performance while enforcing microkernel-like separation between safe and unsafe code:
 
@@ -60,12 +60,12 @@ The current codebase follows the rCore monolithic structure. The medium-term ref
 - **Syscall interface** — `write`, `exit`, `yield`, `get_time`
 - **Virtual memory** — SV39 paging with runtime activation: `KERNEL_SPACE` (`Arc<UPSafeCell<MemorySet>>`) global singleton; `mm::init()` enables paging via `satp::write()` + `sfence.vma`; `MemorySet::active()` writes satp token; `MemorySet::remap_test()` verifies .text not writable, .rodata not writable, .data not executable; `MemorySet::new_kernel()` maps all kernel sections/.data/.bss/physical memory/MMIO/trampoline; `MemorySet::from_elf()` parses ELF (`xmas-elf`) → maps `LOAD` segments + user stack (guard page) + heap + `TrapContext`; `PageTableEntry` with `readable()`/`writable()`/`executable()` query methods; `MapArea` with `MapType` (Identical/Framed) & `MapPermission` (R/W/X/U) + `copy_data()`; `PageTable` with 3-level walk, `map`/`unmap`/`translate`; `StackFrameAllocator` (recycled); `FrameTracker` (RAII); `VPNRange` iterator; `VirtPageNum.indexes()` 3-level VPN decomposition
 - **User library** — `user_lib` crate for writing user-space apps with `println!`, ecall wrappers, and a linker script
-- **GDB debugging** — scripts for connecting `riscv64-elf-gdb` to QEMU
+- **GDB debugging** — scripts for connecting `gdb` to QEMU
 - **CI pipeline** — GitHub Actions builds and runs the kernel in QEMU on every push
 
 ---
 
-## 🧱 Architecture
+##   Architecture
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -118,12 +118,14 @@ The current codebase follows the rCore monolithic structure. The medium-term ref
 
 ---
 
-## 📁 Project Structure
+##   Project Structure
 
 ```
 racho/
 ├── bootloader/               # Prebuilt RustSBI binary (rustsbi-qemu.bin)
 ├── os/                       # Kernel crate
+│   ├── .cargo/
+│   │   └── config.toml       # Build target + rustflags
 │   ├── src/
 │   │   ├── main.rs           # Entry point: rust_main()
 │   │   ├── entry.asm         # ASM entry: _start (sets up boot stack)
@@ -143,8 +145,9 @@ racho/
 │   │   └── lang_items.rs     # Panic handler
 │   ├── linker-qemu.ld        # Linker script: .text.trampoline section (page-aligned), base 0x80200000
 │   ├── build.rs              # Generates link_app.S from user app binaries
-│   ├── rust_objcopy.sh       # Strips kernel ELF → raw binary
+│   ├── rust_objcopy.sh       # Strips kernel ELF → raw binary (uses llvm-objcopy)
 │   ├── rust-analyzer.toml
+│   ├── Cargo.toml
 │   └── Makefile
 ├── user/                     # User-space crate (user_lib)
 │   ├── src/
@@ -152,7 +155,7 @@ racho/
 │   │   ├── syscall.rs        # ecall wrappers (write, exit, yield, get_time)
 │   │   ├── console.rs        # print!/println! via write syscall
 │   │   ├── lang_items.rs     # Panic handler (infinite loop)
-│   │   ├── linker.ld         # App linker script (base 0x80400000, patched per app)
+│   │   ├── linker.ld         # App linker script (base 0x10000)
 │   │   └── bin/              # User applications
 │   │       ├── 00power_3.rs  # 3^200000 mod 998244353 (CPU-bound)
 │   │       ├── 01power_5.rs  # 5^140000 mod 998244353
@@ -160,9 +163,12 @@ racho/
 │   │       └── 03sleep.rs    # Busy-wait 3s with yield (cooperative multitasking)
 │   ├── build.py              # Builds each app at incrementing base addresses
 │   ├── rust-analyzer.toml
+│   ├── Cargo.toml
 │   └── Makefile
-├── rust-toolchain.toml       # Nightly Rust + RISC-V target
-├── run_tcp_off.sh            # Run kernel in QEMU
+├── rust-toolchain.toml       # Nightly Rust + RISC-V target + components
+├── flake.nix                 # Nix flake: reproducible dev shell (NixOS / nix)
+├── setup.sh                  # One-shot setup script for non-Nix systems
+├── run_tcp_off.sh            # Run kernel in QEMU (build + launch)
 ├── run_tcp_on.sh             # Run QEMU with GDB stub (-s -S)
 ├── tcp_gdb_on.sh             # Connect GDB to QEMU
 ├── .github/workflows/CI.yml  # GitHub Actions: builds & runs in QEMU
@@ -171,28 +177,67 @@ racho/
 
 ---
 
-## 🚀 Getting Started
+##   Dependency Management
+
+All Rust-ecosystem dependencies are declared in Rust's own TOML files; all non-Rust dependencies (including `rustup` itself) are declared in `flake.nix`.
+
+### Rust-ecosystem (declared in TOML)
+
+| Dependency | Declaration | Auto-install? |
+|------------|------------|---------------|
+| Nightly toolchain | `rust-toolchain.toml` `channel = "nightly"` | rustup on first `cargo` |
+| Target `riscv64gc-unknown-none-elf` | `rust-toolchain.toml` `targets` | rustup on first `cargo` |
+| Components (`rust-src`, `llvm-tools`, `rustfmt`, `clippy`, `rust-analyzer`) | `rust-toolchain.toml` `components` | rustup on first `cargo` |
+| Binutils (`llvm-objcopy`/`llvm-objdump`) | resolved from `llvm-tools` sysroot | via `llvm-tools` component |
+| Crate dependencies | `os/Cargo.toml` + `user/Cargo.toml` (+ `Cargo.lock`) | cargo resolves |
+| Build target / rustflags | `os/.cargo/config.toml` + `user/.cargo/config.toml` | cargo reads |
+
+### Non-Rust (declared in `flake.nix`)
+
+| Dependency | Purpose |
+|------------|---------|
+| `rustup` | Rust toolchain manager (bootstraps `rust-toolchain.toml`) |
+| `qemu` | RISC-V 64 emulation (`qemu-system-riscv64`) |
+| `python3` | User app build scripts |
+| `git` | Fetching crate git dependencies |
+| `gdb` | Kernel debugging |
+| `gcc`, `zlib`, `openssl` | FHS runtime for rustup-downloaded toolchains on NixOS |
+
+---
+
+##   Getting Started
 
 ### Prerequisites
 
-- **Rust** nightly toolchain (see [`rust-toolchain.toml`](rust-toolchain.toml))
-- **QEMU** with RISC-V 64 support (`qemu-system-riscv64`)
-- **GDB** for RISC-V (`riscv64-elf-gdb`) — optional, for debugging
+All deps are managed automatically. Choose your platform:
 
-Install Rust with the required components:
+**NixOS / nix (recommended)**
 
 ```bash
-rustup toolchain install nightly
-rustup default nightly
-rustup target add riscv64gc-unknown-none-elf
-rustup component add rust-src llvm-tools-preview
-cargo install cargo-binutils
+nix develop
 ```
 
-Install QEMU (Ubuntu/Debian):
+Enters a fully-provisioned dev shell (FHS environment) with `rustup`, `qemu-system-riscv64`, `gdb`, `python3`, and `git`. On first `cargo` invocation, `rust-toolchain.toml` triggers automatic installation of the nightly toolchain, RISC-V target, and all components.
+
+**Other Linux (Ubuntu/Debian)**
 
 ```bash
-sudo apt install qemu-system-riscv64
+./setup.sh
+```
+
+One-shot script that installs:
+- System packages: `qemu-system-riscv64`, `python3`, `git`, `gdb`, `build-essential`
+- Rust nightly toolchain + `riscv64gc-unknown-none-elf` target + all components (via rustup)
+- No `cargo install` step needed — object copying uses `llvm-objcopy` from the `llvm-tools` component
+
+Manual minimal setup (if you prefer not to use the script):
+
+```bash
+# rust-toolchain.toml handles toolchain/target/component auto-install on first cargo run.
+# You only need to install system deps manually:
+sudo apt update && sudo apt install -y build-essential qemu-system-riscv64 python3 git gdb
+# That's it. Run any cargo command in the repo to trigger auto-install:
+cargo --version
 ```
 
 ### Build
@@ -203,13 +248,15 @@ cd os && make build
 
 Compiles the 4 user-space apps, embeds them into the kernel via `link_app.S`, builds the kernel ELF, and strips it to `os/target/riscv64gc-unknown-none-elf/release/os.bin`.
 
+> **Note:** Building user apps currently requires `user/build.py`. If this file is missing from the repository, install it first (available in the project's git history).
+
 ### Run
 
 ```bash
 cd os && make run    # builds + runs in one command
 ```
 
-Expected output:
+This invokes QEMU with the kernel at `0x80200000`. Expected output:
 
 ```
 [ INFO] [kernel] Hello, world!
@@ -227,6 +274,13 @@ Test sleep OK!
 [ INFO] All applications completed!
 ```
 
+Alternative launch scripts:
+
+```bash
+./run_tcp_off.sh      # Build raw binary + launch QEMU
+./run_tcp_on.sh       # Build + launch QEMU with GDB stub (-s -S)
+```
+
 ### Debug with GDB
 
 ```bash
@@ -236,15 +290,25 @@ cd os && make build
 ./run_tcp_on.sh
 
 # Terminal 2: connect GDB
-riscv64-elf-gdb \
+gdb \
   -ex 'file os/target/riscv64gc-unknown-none-elf/release/os' \
   -ex 'set arch riscv:rv64' \
   -ex 'target remote localhost:1234'
 ```
 
+Or use the convenience script:
+
+```bash
+# Terminal 1:
+./run_tcp_on.sh
+
+# Terminal 2:
+./tcp_gdb_on.sh
+```
+
 ---
 
-## 🔧 Syscall API
+##   Syscall API
 
 | ID  | Name       | Signature                        | Description              |
 |-----|------------|----------------------------------|--------------------------|
@@ -257,19 +321,19 @@ User-space apps call these via the `ecall` instruction (wrappers in [`user/src/s
 
 ---
 
-## 🗺 Roadmap
+##   Roadmap
 
 racho's userland design follows the **[Alpine Linux](https://alpinelinux.org/)** philosophy — lightweight, secure, and simple:
 
 | Layer        | Component                                          | Status |
 |-------------|----------------------------------------------------|--------|
-| C library   | [musl libc](https://musl.libc.org/)               | 🔲      |
-| Core utils  | [BusyBox](https://busybox.net/)                    | 🔲      |
-| Init system | [OpenRC](https://github.com/OpenRC/openrc) *(TBD)* | 🔲      |
+| C library   | [musl libc](https://musl.libc.org/)               |        |
+| Core utils  | [BusyBox](https://busybox.net/)                    |        |
+| Init system | [OpenRC](https://github.com/OpenRC/openrc) *(TBD)* |        |
 
 ### Short-term Goal
 
-- 🎯 **Boot BusyBox on racho** — implement file system support, expand syscalls (`fork`, `exec`, `mmap`, `brk`, etc.), and build a minimal process model sufficient to run a statically-linked BusyBox with musl libc.
+-   **Boot BusyBox on racho** — implement file system support, expand syscalls (`fork`, `exec`, `mmap`, `brk`, etc.), and build a minimal process model sufficient to run a statically-linked BusyBox with musl libc.
 
 ### Medium-term Milestones
 
@@ -292,7 +356,7 @@ racho's userland design follows the **[Alpine Linux](https://alpinelinux.org/)**
 
 ---
 
-## 📚 Acknowledgements
+##   Acknowledgements
 
 This project follows the excellent **[rCore Tutorial Book v3](https://rcore-os.cn/rCore-Tutorial-Book-v3/)** by the THU OS team. Chapters covered:
 
@@ -305,6 +369,6 @@ The **[framekernel](https://asterinas.github.io/book/kernel/the-framekernel-arch
 
 ---
 
-## 📄 License
+##   License
 
 [GPLv2](LICENSE) © 2026 tinyblinker
