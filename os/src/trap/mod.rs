@@ -63,8 +63,8 @@ pub fn enable_timer_interrupt() {
 pub fn trap_handler() -> ! {
     set_kernel_trap_entry();
     let cx = current_trap_cx();
-    let scause = scause::read(); // get trap cause
-    let stval = stval::read(); // get extra value
+    let scause = scause::read();
+    let stval = stval::read();
     match scause.cause() {
         Trap::Exception(Exception::UserEnvCall) => {
             cx.sepc += 4;
@@ -96,7 +96,7 @@ pub fn trap_handler() -> ! {
             );
         }
     }
-    trap_return()
+    trap_return();
 }
 
 fn set_user_trap_entry() {

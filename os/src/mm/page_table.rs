@@ -3,7 +3,8 @@ use alloc::vec::Vec;
 use bitflags::*;
 
 use crate::mm::{
-    address::{PhysPageNum, VirtPageNum},
+    VirtAddr,
+    address::{PhysPageNum, StepByOne, VirtPageNum},
     frame_allocator::{FrameTracker, frame_alloc},
 };
 
@@ -73,6 +74,13 @@ impl PageTable {
         Self {
             root_ppn: frame.ppn,
             frames: vec![frame],
+        }
+    }
+    ///Temporarily used to get arguments from user space
+    pub fn from_token(satp: usize) -> Self {
+        Self {
+            root_ppn: PhysPageNum::from(satp & ((1usize << 44) - 1)),
+            frames: Vec::new(),
         }
     }
     fn find_pte_create(&mut self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
@@ -153,4 +161,28 @@ impl PageTable {
     pub fn token(&self) -> usize {
         8usize << 60 | self.root_ppn.0
     }
+}
+
+// NOTE: 地址空间-基于地址空间的分时多任务-改进sys_write的实现:(7.14,writing)
+//translate a pointer to mutable u8 Vec through page table
+pub fn translate_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&'static mut [u8]> {
+    let page_table = PageTable::from_token(token);
+    let mut start = ptr as usize;
+    let end = start + len;
+    let mut v = Vec::new();
+    while start < end {
+        let start_va = VirtAddr::from(start);
+        let mut vpn = start_va.floor();
+        let ppn = page_table.translate(vpn).unwrap().ppn();
+        vpn.step();
+        let mut end_va: VirtAddr = vpn.into();
+        end_va = end_va.min(VirtAddr::from(end));
+        if end_va.page_offset() == 0 {
+            v.push(&mut ppn.get_bytes_array()[start_va.page_offset()..]);
+        } else {
+            v.push(&mut ppn.get_bytes_array()[start_va.page_offset()..end_va.page_offset()])
+        }
+        start = end_va.into();
+    }
+    v
 }
