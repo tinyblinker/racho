@@ -14,7 +14,7 @@
         name = "racho-fhs";
         targetPkgs =
           pkgs: with pkgs; [
-            rustup
+            rustup # rustup needs FHS to install packages
             qemu
             cargo-binutils
             python3
