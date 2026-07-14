@@ -28,6 +28,7 @@
           ];
         runScript = "bash";
         profile = ''
+          export RACHO_FHS_GUARD=1
           echo "==> racho dev shell (FHS)"
           echo "    Rust:  rust-toolchain.toml (auto-installs on first cargo run)"
           echo "    QEMU:  qemu-system-riscv64"
