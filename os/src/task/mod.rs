@@ -2,10 +2,8 @@ mod context;
 mod switch;
 mod task;
 
-use core::cell::RefCell;
 
 use super::sync::UPSafeCell;
-use crate::config::MAX_APP_NUM;
 use crate::loader::get_app_data;
 use crate::task::context::TaskContext;
 use crate::task::switch::__switch;

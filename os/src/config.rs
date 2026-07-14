@@ -24,4 +24,3 @@ pub fn kernel_stack_position(app_id: usize) -> (usize, usize) {
     (bottom, top)
 }
 
-pub use crate::boards::MEMORY_END;
