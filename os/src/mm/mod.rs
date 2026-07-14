@@ -16,6 +16,7 @@ pub use address::{PhysPageNum, VirtAddr};
 pub use frame_allocator::{frame_allocator_test, init_frame_allocator};
 pub use heap_allocator::init_heap;
 pub use memory_set::{KERNEL_SPACE, MapPermission, MemorySet};
+pub use page_table::translate_byte_buffer;
 
 /// initiate the heap allocator, frame allocator and kernel space
 pub fn init() {

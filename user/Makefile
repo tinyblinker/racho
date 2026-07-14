@@ -6,12 +6,11 @@ APPS := $(wildcard $(APP_DIR)/*.rs)
 ELFS := $(patsubst $(APP_DIR)/%.rs, $(TARGET_DIR)/%, $(APPS))
 BINS := $(patsubst $(APP_DIR)/%.rs, $(TARGET_DIR)/%.bin, $(APPS))
 
-LLVM_TOOLS := $(shell rustc --print sysroot)/lib/rustlib/$(shell rustc -vV | sed -n 's/^host: //p')/bin
-OBJDUMP := $(LLVM_TOOLS)/llvm-objdump
-OBJCOPY := $(LLVM_TOOLS)/llvm-objcopy
+OBJDUMP := rust-objdump
+OBJCOPY := rust-objcopy
 
 elf: $(APPS)
-	@python3 build.py
+	@cargo build --release
 
 binary: elf
 	@$(foreach elf, $(ELFS), $(OBJCOPY) $(elf) --strip-all -O binary $(patsubst $(TARGET_DIR)/%, $(TARGET_DIR)/%.bin, $(elf));)

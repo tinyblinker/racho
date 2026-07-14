@@ -16,6 +16,7 @@
           pkgs: with pkgs; [
             rustup
             qemu
+            cargo-binutils
             python3
             git
             gdb

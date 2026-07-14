@@ -19,9 +19,8 @@ BOOTLOADER := ../bootloader/$(SBI)-$(BOARD).bin
 KERNEL_ENTRY_PA := 0x80200000
 
 # Binutils (from llvm-tools component, resolved via rustc sysroot)
-LLVM_TOOLS := $(shell rustc --print sysroot)/lib/rustlib/$(shell rustc -vV | sed -n 's/^host: //p')/bin
-OBJDUMP := $(LLVM_TOOLS)/llvm-objdump
-OBJCOPY := $(LLVM_TOOLS)/llvm-objcopy
+OBJDUMP := rust-objdump
+OBJCOPY := rust-objcopy
 
 # Disassembly
 DISASM ?= -x
@@ -29,9 +28,7 @@ DISASM ?= -x
 build: env $(KERNEL_BIN)
 
 env:
-	@echo "Toolchain: $$(rustup show active-toolchain 2>/dev/null || echo 'not active')"
-	@echo "Target:    $$(rustup target list --installed | grep $(TARGET) || echo '$(TARGET) not installed')"
-	@echo "HINT:      ensure rust-toolchain.toml is effective (cargo --version in repo root)"
+	(rustup target list | grep "riscv64gc-unknown-none-elf (installed)") || rustup target add $(TARGET)
 
 $(KERNEL_BIN): kernel
 	@$(OBJCOPY) $(KERNEL_ELF) --strip-all -O binary $@
@@ -75,10 +72,10 @@ run-inner: qemu-version-check build
 # 		tmux split-window -h "riscv64-unknown-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'" && \
 # 		tmux -2 attach-session -d
 
-# gdbserver: qemu-version-check build
-# 	@qemu-system-riscv64 $(QEMU_ARGS) -s -S
+gdbserver: qemu-version-check build
+	@qemu-system-riscv64 $(QEMU_ARGS) -s -S
 
-# gdbclient:
-# 	@riscv64-unknown-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'
+gdbclient:
+	@riscv64-unknown-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'
 
 .PHONY: build env kernel clean disasm disasm-vim run-inner gdbserver gdbclient qemu-version-check

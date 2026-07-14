@@ -33,7 +33,7 @@ use crate::{
     mm::{
         address::{PhysAddr, PhysPageNum, StepByOne, VPNRange, VirtAddr, VirtPageNum},
         frame_allocator::{FrameTracker, frame_alloc},
-        page_table::{self, PTEFlags, PageTable},
+        page_table::{PTEFlags, PageTable},
     },
 };
 
