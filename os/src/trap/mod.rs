@@ -28,14 +28,9 @@ use riscv::register::{
 
 global_asm!(include_str!("trap.S"));
 
-/// initialize CSR `stvec` as the entry of `__alltraps`
+/// set kernel trap entry
 pub fn init() {
-    unsafe extern "C" {
-        fn __alltraps();
-    }
-    unsafe {
-        stvec::write(__alltraps as *const u8 as usize, TrapMode::Direct);
-    }
+    set_kernel_trap_entry();
 }
 
 #[unsafe(no_mangle)]

@@ -71,24 +71,36 @@ fn heap_test() {
 /// the rust entry-point of OS
 #[unsafe(no_mangle)]
 pub fn rust_main() -> ! {
+    // Referrence
+    // clear_bss();
+    // logging::init();
+    // info!("[kernel] Hello, world!");
+    //
+    // // Initialize the kernel heap and run a heap memory test
+    // init_heap();
+    // heap_test();
+    //
+    // // Initialize the physical frame allocator
+    // init_frame_allocator();
+    // frame_allocator_test();
+    //
+    // // Run user applications
+    // trap::init();
+    // loader::load_apps();
+    // trap::enable_timer_interrupt();
+    // timer::set_next_trigger();
+    // task::run_first_task();
+    //
+    // panic!("Unreachable in rust_main");
     clear_bss();
     logging::init();
-    info!("[kernel] Hello, world!");
-
-    // Initialize the kernel heap and run a heap memory test
-    init_heap();
-    heap_test();
-
-    // Initialize the physical frame allocator
-    init_frame_allocator();
-    frame_allocator_test();
-
-    // Run user applications
+    info!("[kernal] Hello, world!");
+    mm::init();
+    info!("[kernel] back to world!");
     trap::init();
-    loader::load_apps();
     trap::enable_timer_interrupt();
     timer::set_next_trigger();
     task::run_first_task();
-
-    panic!("Unreachable in rust_main");
+    panic!("Unreachable in rust_main!");
+    // NOTE: 7.14决定完全重构,刚检查完主函数,后续继续重构
 }
