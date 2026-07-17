@@ -1,77 +1,56 @@
-# RISC-V RV64 General-Purpose Registers
-# ==============================================================================================
-# | Reg | ABI   | Category     | Definition                    | Brief Explanation            |
-# |-----|-------|--------------|-------------------------------|------------------------------|
-# | x0  | zero  | Special      | Constant Zero                 | Always reads as 0.           |
-# | x1  | ra    | Special      | Return Address                | Address to return after call.|
-# | x2  | sp    | Special      | Stack Pointer                 | Points to the top of stack.  |
-# | x3  | gp    | Special      | Global Pointer                | Points to global data.       |
-# | x4  | tp    | Special      | Thread Pointer                | Points to thread-local data. |
-# |-----|-------|--------------|-------------------------------|------------------------------|
-# | x5  | t0    | Temporary    | Temporary Register            | Caller-saved scratch.        |
-# | x6  | t1    | Temporary    | Temporary Register            | Caller-saved scratch.        |
-# | x7  | t2    | Temporary    | Temporary Register            | Caller-saved scratch.        |
-# |-----|-------|--------------|-------------------------------|------------------------------|
-# | x8  | s0/fp | Saved        | Saved Register / Frame Pointer| Callee-saved; may be FP.     |
-# | x9  | s1    | Saved        | Saved Register                | Callee-saved.               |
-# |-----|-------|--------------|-------------------------------|------------------------------|
-# | x10 | a0    | Argument     | Argument 0 / Return Value 0   | 1st argument / return value. |
-# | x11 | a1    | Argument     | Argument 1 / Return Value 1   | 2nd argument / return value. |
-# | x12 | a2    | Argument     | Argument 2                    | 3rd function argument.       |
-# | x13 | a3    | Argument     | Argument 3                    | 4th function argument.       |
-# | x14 | a4    | Argument     | Argument 4                    | 5th function argument.       |
-# | x15 | a5    | Argument     | Argument 5                    | 6th function argument.       |
-# | x16 | a6    | Argument     | Argument 6                    | 7th function argument.       |
-# | x17 | a7    | Argument     | Argument 7                    | 8th argument / syscall no.   |
-# |-----|-------|--------------|-------------------------------|------------------------------|
-# | x18 | s2    | Saved        | Saved Register                | Callee-saved.               |
-# | x19 | s3    | Saved        | Saved Register                | Callee-saved.               |
-# | x20 | s4    | Saved        | Saved Register                | Callee-saved.               |
-# | x21 | s5    | Saved        | Saved Register                | Callee-saved.               |
-# | x22 | s6    | Saved        | Saved Register                | Callee-saved.               |
-# | x23 | s7    | Saved        | Saved Register                | Callee-saved.               |
-# | x24 | s8    | Saved        | Saved Register                | Callee-saved.               |
-# | x25 | s9    | Saved        | Saved Register                | Callee-saved.               |
-# | x26 | s10   | Saved        | Saved Register                | Callee-saved.               |
-# | x27 | s11   | Saved        | Saved Register                | Callee-saved.               |
-# |-----|-------|--------------|-------------------------------|------------------------------|
-# | x28 | t3    | Temporary    | Temporary Register            | Caller-saved scratch.        |
-# | x29 | t4    | Temporary    | Temporary Register            | Caller-saved scratch.        |
-# | x30 | t5    | Temporary    | Temporary Register            | Caller-saved scratch.        |
-# | x31 | t6    | Temporary    | Temporary Register            | Caller-saved scratch.        |
-# ==============================================================================================
-# 
-# Calling Convention
-# ------------------
-# Caller-saved : ra, t0-t6, a0-a7
-# Callee-saved : s0-s11
-# 
-# Function Arguments
-# ------------------
-# a0-a7 : Function arguments
-# a0-a1 : Return values
-# 
-# Special Registers
-# -----------------
-# zero : Constant 0
-# ra   : Return address
-# sp   : Stack pointer
-# gp   : Global pointer
-# tp   : Thread pointer
+# NOTE:!!important registers in TRAP
+# stvec (Supervisor Trap Vector):TrapHandler base addr and mode
+# satp (Supervisor Translation and Protection Register):page table base addr, and translation mode(e.g. SV39)
+# sepc (Supervisor Exception Program Counter Register):Holds the "virtual addr" of the instrucion when have interrupts/exceptions
+# scause (Supervisor Cause Register):Indentify whether Exception/Interrupts and its cause code
+# stval (Supervisor Trap Value Register):Holds additional Exception/Interrupts info(e.g faulting virtual address).
+# sstatus (Supervisor Status Register):Holds the operating state of Supervisor-mode(e.g. interrupt-enable bits, previous privilege informations...).
+# sscratch (Supervisor Scratch Register):Dedicated for use by supervisor softwares.
+# sie (Supervisor Interrupt Enable Register):Controls which Supervisor Interrrupts are enabled.
+# sip (Supervisor Interrupts Pending Register):Indicating pending supervisor interrupts.
+# NOTE:!!important instructions in TRAP
+# "sret" (instruction): (Supervisor Return Instruction):Returns from a trap taken into Supervisor mode by restoring the Privillege mode and interrupt-enable status from "sstatus" and resuming execution at address in "sepc";
+# "jr [register]"(instruction): (Jump Register): let PC point to the register(normally a function addr).
+# "sfence.vma":(TLB flush)tells the CPU to stop using old virtual-to-physical address translations and reload them from the page table
+# "fence.i":(I-cache flush)makes the cpu fetch the updated instructions from memory
+# NOTE:!!important cheatsheets of S-mode riscv asm:
+# load, read(把东西搬进CPU(Register))=> "<-"(Register<-Memory)
+# write, store(把东西搬进内存(Memory))=> "->"(Register->Memory)
+# 算数运算只能发生在Registers之间,Memorys不能直接参与运算,所以只能read(load)->calculate->write(store)
+# NOTE: Integer Registers
+# "Caller Saved":(main():caller,foo():callee):callee改了用了不会还原给caller,要caller自己saved
+# "Callee Saved":(main():caller,foo():callee):callee改了用了必须还原给caller,不用caller自己saved
+
+# TODO:2026.7.17:plan:7.18重新分析作图理解这个奇怪的trap.S文件,写学相关笔记,学习Trampoline机制
 .altmacro
-.macro SAVE_GP n
-    sd x\n, \n*8(sp)
+.macro SAVE_GP n # declear a macro
+    sd x\n, \n*8(sp) # save x[n]->([n]*8(offset)+sp)
 .endm
-.macro LOAD_GP n
-    ld x\n, \n*8(sp)
+.macro LOAD_GP n # declear a macro
+    ld x\n, \n*8(sp) # load ([n]*8(offset)+sp)->x[n]
 .endm
-    .section .text.trampoline
+    .section .text.trampoline # set a section called trampoline
     .globl __alltraps
     .globl __restore
     .align 2
 __alltraps:
     # exchange the sp and the sscratch
-    csrrw sp, sscratch, sp
+    ##[repr(C)]
+    # pub struct TrapContext {
+    #     /// general regs[0..31]
+    #     pub x: [usize; 32],
+    #     /// CSR sstatus
+    #     pub sstatus: Sstatus,
+    #     /// CSR spec
+    #     pub sepc: usize,
+    #     /// Addr of Page Table
+    #     pub kernel_satp: usize,
+    #     /// kernel_stack
+    #     pub kernel_sp: usize,
+    #     /// Addr of trap_handler function
+    #     pub trap_handler: usize,
+    # }
+    csrrw sp, sscratch, sp // store the current Stack Pointer to the sscratch
     # now sp->&TrapContext in userspace, sscratch ->user stack
     # save other general purpose registers
     sd x1, 1*8(sp)
@@ -116,7 +95,7 @@ __restore:
     ld t0, 32*8(sp)
     ld t1, 33*8(sp)
     csrw sstatus, t0
-    csrw spec, t1
+    csrw sepc, t1
     # restore general purpose registers except x0/sp/tp
     ld x1, 1*8(sp)
     ld x3, 3*8(sp)

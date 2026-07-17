@@ -92,15 +92,15 @@ pub fn rust_main() -> ! {
     // task::run_first_task();
     //
     // panic!("Unreachable in rust_main");
-    clear_bss();
+    clear_bss(); // test ok!
     logging::init();
     info!("[kernal] Hello, world!");
-    mm::init();
-    info!("[kernel] back to world!");
-    trap::init();
-    trap::enable_timer_interrupt();
-    timer::set_next_trigger();
-    task::run_first_task();
+    // mm::init();
+    // info!("[kernel] back to world!");
+    // trap::init();
+    // trap::enable_timer_interrupt();
+    // timer::set_next_trigger();
+    // task::run_first_task();
     panic!("Unreachable in rust_main!");
     // NOTE: 7.14决定完全重构,刚检查完主函数,后续继续重构
 }
