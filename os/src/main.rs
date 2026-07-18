@@ -95,6 +95,9 @@ pub fn rust_main() -> ! {
     clear_bss(); // test ok!
     logging::init();
     info!("[kernal] Hello, world!");
+    // TODO:
+    // 7.18,19;继续排除问题重构代码让上面这两个函数的调用链正常,遇到必要时,重构代码和写测试代码
+
     // mm::init();
     // info!("[kernel] back to world!");
     // trap::init();
