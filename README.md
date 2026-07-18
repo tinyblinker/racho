@@ -10,6 +10,12 @@
   <img src="https://img.shields.io/badge/license-GPLv2-a6e3a1?style=for-the-badge&labelColor=1e1e2e" alt="License">
 </p>
 
+> ** 注意 / NOTE**
+>
+> **这个项目处于十分早期的开发阶段，几乎什么都还没做，各方面都很不成熟。README.md 也是用 AI 写的，看起来很唬人但实际功能远未达到。请勿过分严肃对待这个早期项目。待稳定出 release 后我会自行修改这行提示。**
+>
+> *This project is at an extremely early stage of development — almost nothing has been implemented yet, and everything is immature. The README.md was also written by AI; it looks impressive but actual functionality is far from complete. Please do not take this early, rough project too seriously. I will update this notice myself once a stable release is ready.*
+
 <h1 align="center">  racho</h1>
 
 <p align="center">
