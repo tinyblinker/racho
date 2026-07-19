@@ -1,4 +1,4 @@
-use log::{Level, LevelFilter, Log, Metadata, Record};
+use log::{Level, LevelFilter, Log, Metadata, Record, debug, error, info, trace, warn};
 
 struct SimpleLogger;
 
@@ -36,6 +36,13 @@ pub fn init() {
         Some("INFO") => LevelFilter::Info,
         Some("DEBUG") => LevelFilter::Debug,
         Some("TRACE") => LevelFilter::Trace,
-        _ => LevelFilter::Info,
+        _ => LevelFilter::Warn,
     });
+    // NOTE: test01
+    error!("[kernel test01] error log test!");
+    warn!("[kernel test01] waring log test!");
+    info!("[kernel test01] info log test!");
+    debug!("[kernel test01] debug log test!");
+    trace!("[kernel test01] trace log test!");
+    info!("[kernel test01] log init finished!(check if the above looks ok)");
 }
