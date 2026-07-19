@@ -2,8 +2,8 @@ mod context;
 mod switch;
 mod task;
 
-
 use super::sync::UPSafeCell;
+use crate::info;
 use crate::loader::get_app_data;
 use crate::task::context::TaskContext;
 use crate::task::switch::__switch;
@@ -29,13 +29,14 @@ pub struct TaskManager {
 lazy_static! {
     /// Global variable: TASK_MANAGER
     pub static ref TASK_MANAGER: TaskManager = {
-        println!("init TASK_MANAGER");
+        info!("[kernel test07] init TASK_MANAGER ...!");
         let num_app = get_num_app();
         println!("num_app = {}",num_app);
         let mut tasks: Vec<TaskControlBlock> = Vec::new();
         for i in 0..num_app{
             tasks.push(TaskControlBlock::new(get_app_data(i), i));
         }
+        info!("[kernel test07] init TASK_MANAGER ok!");
         TaskManager {
             num_app,
             inner: unsafe {
@@ -56,10 +57,17 @@ impl TaskManager {
         let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
         drop(inner);
 
-        let mut _unused = TaskContext::zero_init();
+        let mut fake_task_context = TaskContext::zero_init();
+        // NOTE: let the "first task" be the "next task" being switch to
 
+        info!("[kernel test08] use 'switch.S' to load the first task's context ...!");
         unsafe {
-            __switch(&mut _unused as *mut TaskContext, next_task_cx_ptr);
+            // NOTE:
+            // __switch(context_being_stored, context_being_restored);
+            // store "current context"(group of registers) to context_being_stored
+            // restore context_being_restored to "current context"(group of registers)
+            __switch(&mut fake_task_context as *mut TaskContext, next_task_cx_ptr);
+            // paraments will be put in the a0,a1 for expression in "__switch()" to use
         }
 
         panic!("unreachable in run_first_task")
@@ -102,12 +110,15 @@ impl TaskManager {
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
             drop(inner);
             // before this, we should drop local variables that must be dropped mannually
+            info!(
+                "[kernel notice] run_next_task(): next task exist!Use __switch(task a, task b) to switch task!"
+            );
             unsafe {
                 __switch(current_task_cx_ptr, next_task_cx_ptr);
             }
             // go back to user mode
         } else {
-            println!("All applications completed!");
+            info!("[kernel notice] next task not exists! All applications completed! shutdown!");
             shutdown(false);
         }
     }

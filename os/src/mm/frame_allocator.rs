@@ -5,6 +5,7 @@ use crate::mm::address::{PhysAddr, PhysPageNum};
 use crate::sync::UPSafeCell;
 use alloc::vec::Vec;
 use lazy_static::lazy_static;
+use log::info;
 
 /// manage a frame which has the same lifecycle as the tracker
 /// Uses RAII: the lifecycle of a PhysPageNum is bound to a FrameTracker
@@ -136,6 +137,7 @@ fn frame_dealloc(ppn: PhysPageNum) {
 #[allow(unused)]
 /// a simple test for frame allocator
 pub fn frame_allocator_test() {
+    info!("[kernel test03] frame allocator init test ...");
     let mut v: Vec<FrameTracker> = Vec::new();
     for i in 0..5 {
         let frame = frame_alloc().unwrap();
@@ -149,5 +151,5 @@ pub fn frame_allocator_test() {
         v.push(frame);
     }
     drop(v);
-    println!("frame_allocator_test passed!");
+    info!("[kernel test03] frame allocator init test ok!");
 }
