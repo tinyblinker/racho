@@ -19,8 +19,11 @@ BOOTLOADER := ../bootloader/$(SBI)-$(BOARD).bin
 KERNEL_ENTRY_PA := 0x80200000
 
 # Binutils (from llvm-tools component, resolved via rustc sysroot)
-OBJDUMP := rust-objdump
-OBJCOPY := rust-objcopy
+SYSROOT := $(shell rustc --print sysroot)
+HOST_TRIPLE := $(shell rustc -vV | awk '/host:/ {print $$2}')
+LLVM_TOOLS := $(SYSROOT)/lib/rustlib/$(HOST_TRIPLE)/bin
+OBJDUMP := $(LLVM_TOOLS)/llvm-objdump
+OBJCOPY := $(LLVM_TOOLS)/llvm-objcopy
 
 # Disassembly
 DISASM ?= -x
