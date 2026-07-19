@@ -18,11 +18,16 @@ pub use heap_allocator::init_heap;
 pub use memory_set::{KERNEL_SPACE, MapPermission, MemorySet};
 pub use page_table::translate_byte_buffer;
 
+use crate::heap_test;
+
 /// initiate the heap allocator, frame allocator and kernel space
 pub fn init() {
     heap_allocator::init_heap();
+    heap_test();
     frame_allocator::init_frame_allocator();
+    frame_allocator_test();
     // NOTE: How the kernel page table is set up (TOPIC)
     // Activate SV39 paging mode
+    // successfully established the KERNEL_SPACE
     KERNEL_SPACE.exclusive_access().active();
 }
