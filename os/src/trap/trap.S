@@ -36,7 +36,7 @@
 __alltraps:
     # exchange the sp and the sscratch
     ##[repr(C)]
-    # pub struct TrapContext {
+    # pub struct TrapContext {{
     #     /// general regs[0..31]
     #     pub x: [usize; 32],
     #     /// CSR sstatus
@@ -49,7 +49,7 @@ __alltraps:
     #     pub kernel_sp: usize,
     #     /// Addr of trap_handler function
     #     pub trap_handler: usize,
-    # }
+    # }}
     csrrw sp, sscratch, sp // store the current Stack Pointer to the sscratch
     # now sp->&TrapContext in userspace, sscratch ->user stack
     # save other general purpose registers
@@ -100,16 +100,16 @@ __restore:
     # a0: *TrapContext in user space(Constant); a1: user space token
     # switch to user space
     # NOTE: ?what is in the "a1" register
-    # unsafe {
+    # unsafe {{
     #     asm!(
     #         "fence.i",
-    #         "jr {restore_va}",      // jump to new addr of __restore asm function
+    #         "jr {{restore_va}}",      // jump to new addr of __restore asm function
     #         restore_va = in(reg) restore_va,
     #         in("a0") trap_cx_ptr,   // a0 = virt addr of Trap Context
     #         in("a1") user_satp,     // a1 = phy addr of user page table
     #         options(noreturn)
     #     );
-    # }
+    # }}
     csrw satp, a1 # 我们发现a1是在trap_return()函数中传入当前用户的user_satp
     sfence.vma # 修改页表后刷新TLB缓存
     csrw sscratch, a0 # sscratch存入trap_cx_ptr,指向trapContext
