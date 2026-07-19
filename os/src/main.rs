@@ -45,6 +45,7 @@ fn clear_bss() {
 
 #[allow(unused)]
 fn heap_test() {
+    info!("[kernel test02] heap init test ...");
     use alloc::boxed::Box;
     use alloc::vec::Vec;
     unsafe extern "C" {
@@ -65,7 +66,7 @@ fn heap_test() {
     }
     assert!(bss_range.contains(&(v.as_ptr() as *const _ as *const () as usize)));
     drop(v);
-    println!("heap_test passed!");
+    info!("[kernel test02] heap init test passed!");
 }
 
 /// the rust entry-point of OS
@@ -94,16 +95,16 @@ pub fn rust_main() -> ! {
     // panic!("Unreachable in rust_main");
     clear_bss(); // test ok!
     logging::init();
-    info!("[kernal] Hello, world!");
     // TODO:
-    // 7.18,19;继续排除问题重构代码让上面这两个函数的调用链正常,遇到必要时,重构代码和写测试代码
-
-    // mm::init();
-    // info!("[kernel] back to world!");
-    // trap::init();
-    // trap::enable_timer_interrupt();
-    // timer::set_next_trigger();
-    // task::run_first_task();
+    // 7.19,20;继续排除问题重构代码让上面这两个函数的调用链正常,遇到必要时,重构代码和写测试代码
+    // 重构代码,参考framework kernel,分离safe rust和unsafe rust;
+    // 给孙班主任分享想法(重构framework kernel后,录制演示视频)
+    // 关键给孙老师直接录制演示视频,写一个架构介绍去咨询意见
+    mm::init();
+    trap::init(); // setup the kernel trap
+    trap::enable_timer_interrupt();
+    timer::set_next_trigger();
+    task::run_first_task();
     panic!("Unreachable in rust_main!");
     // NOTE: 7.14决定完全重构,刚检查完主函数,后续继续重构
 }
