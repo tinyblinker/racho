@@ -3,6 +3,7 @@ use alloc::{collections::btree_map::BTreeMap, sync::Arc};
 use bitflags::bitflags;
 use core::arch::asm;
 use lazy_static::lazy_static;
+use log::info;
 use riscv::register::satp;
 
 unsafe extern "C" {
@@ -15,7 +16,7 @@ unsafe extern "C" {
     safe fn sbss_with_stack();
     safe fn ebss();
     safe fn ekernel();
-    safe fn trampoline();
+    safe fn strampoline();
 }
 
 lazy_static! {
@@ -172,13 +173,14 @@ impl MemorySet {
     fn map_trampoline(&mut self) {
         self.page_table.map(
             VirtAddr::from(TRAMPOLINE).into(),
-            PhysAddr::from(trampoline as *const () as usize).into(),
+            PhysAddr::from(strampoline as *const () as usize).into(),
             PTEFlags::R | PTEFlags::X,
         );
     }
     // NOTE: new_kernel() implementation completed on 6.29
     // Build the kernel's address space
     pub fn new_kernel() -> Self {
+        info!("[kernel test03] KERNEL_SPACE init ...");
         let mut memory_set = Self::new_bare();
         // map trampoline
         memory_set.map_trampoline();
@@ -261,6 +263,7 @@ impl MemorySet {
                 None,
             );
         }
+        info!("[kernel test03] KERNEL_SPACE init ok!");
         memory_set
     }
     // TODO: 6.30 add nothing
@@ -349,6 +352,7 @@ impl MemorySet {
     }
     // Activate the address space management
     pub fn active(&self) {
+        info!("[kernel notice] enable virtual memory ...!");
         let satp = self.page_table.token();
         unsafe {
             satp::write(satp);
@@ -357,6 +361,7 @@ impl MemorySet {
             // fetch instructions
             asm!("sfence.vma");
         }
+        info!("[kernel notice] enable virtual memory ok!");
     }
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.page_table.translate(vpn)
