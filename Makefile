@@ -11,5 +11,14 @@ debug:
 gdb_client:
 	./tools/gdb_client.sh
 
+disasm:
+	cargo build -p kernel --release
+	llvm-objdump -x target/riscv64gc-unknown-none-elf/release/kernel | less
+
+disasm-vim:
+	cargo build -p kernel --release
+	llvm-objdump -x target/riscv64gc-unknown-none-elf/release/kernel > /tmp/racho.asm
+	vim /tmp/racho.asm
+
 clean:
 	cargo clean
