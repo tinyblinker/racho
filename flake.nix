@@ -31,7 +31,7 @@
           echo "    Rust:  rust-toolchain.toml (auto-installs on first cargo run)"
           echo "    QEMU:  qemu-system-riscv64"
           echo "    GDB:   gdb"
-          echo "    Build: cd os && make run"
+          echo "    Build: make"
           echo ""
         '';
       };
