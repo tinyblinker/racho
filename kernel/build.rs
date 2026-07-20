@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 fn main() {
     println!("cargo:rustc-link-arg=-Tkernel/src/linker-qemu.ld");
-    println!("cargo:rerun-if-changed=../user/src/");
+    println!("cargo:rerun-if-changed=../user_lib/src/");
 
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let target_dir = manifest_dir
@@ -22,7 +22,7 @@ fn main() {
 
 fn insert_app_data(target_path: &str) -> Result<()> {
     let mut f = File::create("src/link_app.S").unwrap();
-    let mut apps: Vec<_> = read_dir("../user/src/bin")
+    let mut apps: Vec<_> = read_dir("../user_lib/src/bin")
         .unwrap()
         .map(|dir_entry| {
             let mut name_with_ext = dir_entry.unwrap().file_name().into_string().unwrap();

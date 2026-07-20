@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "kernel",
-    "user",
+    "user_lib",
 ]
 exclude = [
     "framework",

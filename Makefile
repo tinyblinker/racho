@@ -3,9 +3,11 @@ all:
 	cargo build -p kernel --release
 
 run:
+	cargo build -p user_lib --release
 	cargo run -p kernel --release
 
 debug:
+	cargo build -p user_lib --release
 	RACHO_GDB=1 cargo run -p kernel --release
 
 gdb_client:
