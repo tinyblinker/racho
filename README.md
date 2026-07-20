@@ -1,37 +1,54 @@
+> **NOTE**
+>
+> *This project is at an extremely early stage of development — almost nothing has been implemented yet, and everything is immature. The README.md was also written by AI; it looks impressive but actual functionality is far from complete. Please do not take this early, rough project too seriously. I will update this notice myself once a stable release is ready.*
+
 # racho
 
-A toy RISC-V 64 kernel written in Rust, following the [rCore Tutorial v3](https://rcore-os.cn/rCore-Tutorial-Book-v3/) (Chapters 1–4). Implements batch and time-sharing task scheduling with SV39 paging. Runs on QEMU `virt` with RustSBI.
+A Rust kernel for RISC-V 64, built along the [rCore Tutorial](https://rcore-os.cn/rCore-Tutorial-Book-v3/) (Ch.1–4). Currently implements batch/time-sharing task scheduling with SV39 paging.
+
+## Goal
+
+Refactor the current test-oriented codebase toward a **Framekernel architecture** — extract a thin, well-defined unsafe framework layer (page tables, trap handling, context switching) from the monolithic rCore style, while the upper-layer kernel logic is written entirely in safe Rust, aligning with the design philosophy of [Asterinas](https://github.com/asterinas/asterinas).
 
 ## Build & Run
 
-Depends on Rust nightly with the `riscv64gc-unknown-none-elf` target, and `qemu-system-riscv64`.
-
 ```bash
-nix develop        # or install dependencies manually
-make run           # build user apps + kernel, launch QEMU
-make debug         # launch with GDB stub
-make clean
+nix develop                     # or manually: rust nightly + riscv64gc target + qemu-system-riscv64
+make run
 ```
 
-## Structure
+## Project Structure
 
 ```
 racho/
-├── kernel/              # Kernel crate
-│   └── src/
-│       ├── trap/        # Interrupt, exception, and syscall handling
-│       ├── task/        # TCB, round-robin scheduler, context switch
-│       ├── syscall/     # write, exit, yield, get_time
-│       ├── mm/          # SV39 page tables, frame allocator, heap
-│       ├── sync/        # UPSafeCell
-│       └── boards/      # Board-specific config
-├── user_lib/            # Userspace library + apps (power_3/5/7, sleep)
-├── bootloader/          # RustSBI binary
-├── tools/               # QEMU/GDB launch scripts
-├── Makefile
-├── flake.nix
-└── Cargo.toml
+├── kernel/                # Kernel crate
+│   ├── src/
+│   │   ├── main.rs        # Kernel entry
+│   │   ├── trap/          # Trap handling (interrupt/exception/syscall)
+│   │   ├── task/          # Task management (TCB / scheduler / __switch)
+│   │   ├── syscall/       # Syscalls (write/exit/yield/get_time)
+│   │   ├── mm/            # Memory management (SV39 paging / frame allocator / heap)
+│   │   ├── sync/          # UPSafeCell
+│   │   └── boards/        # Board config (CLOCK_FREQ, MMIO)
+│   ├── build.rs           # Generates link_app.S, embeds user apps
+│   └── linker-qemu.ld
+├── user_lib/              # Userspace crate
+│   └── src/bin/           # User apps (power_3/5/7, sleep)
+├── bootloader/            # RustSBI binary
+└── flake.nix              # Nix dev environment
 ```
+
+## Roadmap
+
+- [ ] **Refactor to Framekernel architecture** — extract unsafe framework layer, upper-layer safe Rust
+- [ ] **Port musl libc** — bring up a minimal C runtime for userland
+- [ ] **Boot BusyBox** — support statically-linked BusyBox with musl libc
+- [ ] Filesystem support
+- [ ] `fork` + `exec` process model
+
+## Acknowledgements
+
+Built upon the [rCore Tutorial v3](https://rcore-os.cn/rCore-Tutorial-Book-v3/) by the THU OS team. Framekernel architecture target inspired by [Asterinas](https://github.com/asterinas/asterinas).
 
 ## License
 
