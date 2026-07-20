@@ -5,3 +5,4 @@
 /.nix-tools
 /.direnv
 /os/src/linker.ld
+/kernel/target
