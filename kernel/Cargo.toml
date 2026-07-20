@@ -1,16 +1,16 @@
 [package]
 name = "kernel"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
-lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-log = "0.4"
-xmas-elf = "0.7.0"
-sbi-rt = { version = "0.0.2", features = ["legacy"] }
-buddy_system_allocator = "0.6"
-bitflags = "1.2.1"
+riscv.workspace = true
+lazy_static.workspace = true
+log.workspace = true
+xmas-elf.workspace = true
+sbi-rt.workspace = true
+buddy_system_allocator.workspace = true
+bitflags.workspace = true
 
-[profile.release]
-debug = true
+[lints]
+workspace = true

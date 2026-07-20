@@ -13,3 +13,4 @@
 # already existing elements were commented out
 
 #/target
+/kernel/src/link_app.S

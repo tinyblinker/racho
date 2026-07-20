@@ -1,16 +1,10 @@
 [package]
 name = "user_lib"
-version = "0.1.0"
-edition = "2024"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] } 
+riscv.workspace = true
 
-[profile.release]
-debug = true
-
-# [features]
-# board_qemu = []
-# board_k210 = []
+[lints]
+workspace = true

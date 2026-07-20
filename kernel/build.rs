@@ -1,15 +1,26 @@
 use std::fs::{File, read_dir};
 use std::io::{Result, Write};
+use std::path::PathBuf;
 
 fn main() {
+    println!("cargo:rustc-link-arg=-Tkernel/src/linker-qemu.ld");
     println!("cargo:rerun-if-changed=../user/src/");
-    println!("cargo:rerun-if-changed={}", TARGET_PATH);
-    insert_app_data().unwrap();
+
+    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let target_dir = manifest_dir
+        .parent()
+        .unwrap()
+        .join("target")
+        .join("riscv64gc-unknown-none-elf")
+        .join("release");
+
+    let target_path = target_dir.to_string_lossy().into_owned();
+    println!("cargo:rerun-if-changed={}", target_path);
+
+    insert_app_data(&target_path).unwrap();
 }
 
-static TARGET_PATH: &str = "../target/riscv64gc-unknown-none-elf/release/";
-
-fn insert_app_data() -> Result<()> {
+fn insert_app_data(target_path: &str) -> Result<()> {
     let mut f = File::create("src/link_app.S").unwrap();
     let mut apps: Vec<_> = read_dir("../user/src/bin")
         .unwrap()
@@ -46,9 +57,9 @@ fn insert_app_data() -> Result<()> {
             .global app_{0}_start
             .global app_{0}_end
         app_{0}_start:
-            .incbin "{2}{1}"
+            .incbin "{1}/{2}"
         app_{0}_end:"#,
-            idx, app, TARGET_PATH
+            idx, target_path, app
         )?;
     }
     Ok(())
