@@ -28,10 +28,11 @@
         ];
         shellHook = ''
           echo "==> racho dev shell"
-          echo "    Rust:  rust-toolchain.toml (auto-installs on first cargo run)"
-          echo "    QEMU:  qemu-system-riscv64"
-          echo "    GDB:   gdb"
-          echo "    Build: cd os && make run"
+          echo "  Rust:  rust-toolchain.toml (auto-installs on first cargo run)"
+          echo "  Rust:  Cargo.toml (for Build system + Package manager)"
+          echo "  QEMU:  make run"
+          echo "  GDB:   make debug / make gdb_client"
+          echo "  Build: make all"
           echo ""
         '';
       };

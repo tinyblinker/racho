@@ -1,0 +1,10 @@
+[package]
+name = "user_lib"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+riscv.workspace = true
+
+[lints]
+workspace = true

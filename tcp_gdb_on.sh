@@ -1,5 +1,0 @@
-#!/bin/bash
-gdb \
- -ex 'file os/target/riscv64gc-unknown-none-elf/release/os' \
- -ex 'set arch riscv:rv64' \
- -ex 'target remote localhost:1234'

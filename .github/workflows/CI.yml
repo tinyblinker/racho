@@ -16,5 +16,5 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: kernel test
-        run: nix develop --command bash -c "cd os && make run"
+        run: nix develop --command bash -c "make run"
 

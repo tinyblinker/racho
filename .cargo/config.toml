@@ -1,0 +1,9 @@
+[build]
+target = "riscv64gc-unknown-none-elf"
+
+[target.riscv64gc-unknown-none-elf]
+rustflags = [
+    "-Cforce-frame-pointers=yes"
+]
+# cargo automatically use ELF's path as the first argument
+runner = "tools/run_qemu.sh" 

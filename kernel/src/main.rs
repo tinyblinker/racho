@@ -98,8 +98,8 @@ pub fn rust_main() -> ! {
     // TODO:
     // 7.19,20;继续排除问题重构代码让上面这两个函数的调用链正常,遇到必要时,重构代码和写测试代码
     // 重构代码,参考framework kernel,分离safe rust和unsafe rust;
-    // 给孙班主任分享想法(重构framework kernel后,录制演示视频)
-    // 关键给孙老师直接录制演示视频,写一个架构介绍去咨询意见
+    // 分享想法(重构framework kernel后,录制演示视频)
+    // 直接录制演示视频,写一个架构介绍去咨询意见
     mm::init();
     trap::init(); // setup the kernel trap
     trap::enable_timer_interrupt();
