@@ -106,11 +106,8 @@ lazy_static! {
 // operation on the allocator, we must call FRAME_ALLOCATOR.exclusive_access()
 // to obtain a mutable reference.
 pub fn init_frame_allocator() {
-    unsafe extern "C" {
-        safe fn ekernel();
-    }
     FRAME_ALLOCATOR.exclusive_access().init(
-        PhysAddr::from(ekernel as *const u8 as usize).ceil(),
+        PhysAddr::from(framework::ekernel_addr()).ceil(),
         PhysAddr::from(MEMORY_END).floor(),
     );
 }

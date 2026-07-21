@@ -1,23 +1,9 @@
+use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
-use alloc::{collections::btree_map::BTreeMap, sync::Arc};
+use alloc::sync::Arc;
 use bitflags::bitflags;
-use core::arch::asm;
 use lazy_static::lazy_static;
 use log::info;
-use riscv::register::satp;
-
-unsafe extern "C" {
-    safe fn stext();
-    safe fn etext();
-    safe fn srodata();
-    safe fn erodata();
-    safe fn sdata();
-    safe fn edata();
-    safe fn sbss_with_stack();
-    safe fn ebss();
-    safe fn ekernel();
-    safe fn strampoline();
-}
 
 lazy_static! {
     /// Create the global kernel address space instance
@@ -173,7 +159,7 @@ impl MemorySet {
     fn map_trampoline(&mut self) {
         self.page_table.map(
             VirtAddr::from(TRAMPOLINE).into(),
-            PhysAddr::from(strampoline as *const () as usize).into(),
+            PhysAddr::from(framework::strampoline_addr()).into(),
             PTEFlags::R | PTEFlags::X,
         );
     }
@@ -187,25 +173,25 @@ impl MemorySet {
         // map kernel sections
         println!(
             ".text [{:#x}, {:#x})",
-            stext as *const () as usize, etext as *const () as usize
+            framework::stext_addr(), framework::etext_addr()
         );
         println!(
             ".rodata [{:#x}, {:#x})",
-            srodata as *const () as usize, erodata as *const () as usize
+            framework::srodata_addr(), framework::erodata_addr()
         );
         println!(
             ".data [{:#x}, {:#x})",
-            sdata as *const () as usize, edata as *const () as usize
+            framework::sdata_addr(), framework::edata_addr()
         );
         println!(
             ".bss [{:#x}, {:#x})",
-            sbss_with_stack as *const () as usize, ebss as *const () as usize
+            framework::sbss_with_stack_addr(), framework::ebss_addr()
         );
         println!("mapping .text section");
         memory_set.push(
             MapArea::new(
-                (stext as *const () as usize).into(),
-                (etext as *const () as usize).into(),
+                (framework::stext_addr()).into(),
+                (framework::etext_addr()).into(),
                 MapType::Identical,
                 MapPermission::R | MapPermission::X,
             ),
@@ -214,8 +200,8 @@ impl MemorySet {
         println!("mapping .rodata section");
         memory_set.push(
             MapArea::new(
-                (srodata as *const () as usize).into(),
-                (erodata as *const () as usize).into(),
+                (framework::srodata_addr()).into(),
+                (framework::erodata_addr()).into(),
                 MapType::Identical,
                 MapPermission::R,
             ),
@@ -224,8 +210,8 @@ impl MemorySet {
         println!("mapping .data section");
         memory_set.push(
             MapArea::new(
-                (sdata as *const () as usize).into(),
-                (edata as *const () as usize).into(),
+                (framework::sdata_addr()).into(),
+                (framework::edata_addr()).into(),
                 MapType::Identical,
                 MapPermission::R | MapPermission::W,
             ),
@@ -234,8 +220,8 @@ impl MemorySet {
         println!("mapping .bss section");
         memory_set.push(
             MapArea::new(
-                (sbss_with_stack as *const () as usize).into(),
-                (ebss as *const () as usize).into(),
+                (framework::sbss_with_stack_addr()).into(),
+                (framework::ebss_addr()).into(),
                 MapType::Identical,
                 MapPermission::R | MapPermission::W,
             ),
@@ -244,7 +230,7 @@ impl MemorySet {
         println!("mapping physical memory");
         memory_set.push(
             MapArea::new(
-                (ekernel as *const () as usize).into(),
+                (framework::ekernel_addr()).into(),
                 MEMORY_END.into(),
                 MapType::Identical,
                 MapPermission::R | MapPermission::W,
@@ -354,13 +340,8 @@ impl MemorySet {
     pub fn active(&self) {
         info!("[kernel notice] enable virtual memory ...!");
         let satp = self.page_table.token();
-        unsafe {
-            satp::write(satp);
-            // Since the kernel page table uses identity mapping, after paging
-            // is enabled we can still correctly access kernel addresses to
-            // fetch instructions
-            asm!("sfence.vma");
-        }
+        framework::write_satp(satp);
+        framework::sfence_vma();
         info!("[kernel notice] enable virtual memory ok!");
     }
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
@@ -374,11 +355,11 @@ impl MemorySet {
     pub fn remap_test() {
         let mut kernel_space = KERNEL_SPACE.exclusive_access();
         let mid_text: VirtAddr =
-            ((stext as *const () as usize + etext as *const () as usize) / 2).into();
+            ((framework::stext_addr() + framework::etext_addr()) / 2).into();
         let mid_rodata: VirtAddr =
-            ((srodata as *const () as usize + erodata as *const () as usize) / 2).into();
+            ((framework::srodata_addr() + framework::erodata_addr()) / 2).into();
         let mid_data: VirtAddr =
-            ((sdata as *const () as usize + edata as *const () as usize) / 2).into();
+            ((framework::sdata_addr() + framework::edata_addr()) / 2).into();
         assert!(
             !kernel_space
                 .page_table

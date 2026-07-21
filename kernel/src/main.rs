@@ -21,7 +21,6 @@ pub mod syscall;
 pub mod task;
 pub mod trap;
 
-use crate::logging::init;
 use core::arch::global_asm;
 use framework::clear_bss;
 use log::*;
@@ -34,11 +33,7 @@ fn heap_test() {
     use alloc::boxed::Box;
     use alloc::vec::Vec;
 
-    unsafe extern "C" {
-        safe fn sbss();
-        safe fn ebss();
-    }
-    let bss_range = sbss as *const () as usize..ebss as *const () as usize;
+    let bss_range = framework::sbss_addr()..framework::ebss_addr();
     let a = Box::new(5);
     assert_eq!(*a, 5);
     assert!(bss_range.contains(&(a.as_ref() as *const _ as *const () as usize)));
@@ -59,7 +54,7 @@ fn heap_test() {
 pub fn rust_main() -> ! {
     clear_bss();
     logging::init();
-    // mm::init();
+    mm::init();
     // trap::init();
     // trap::enable_timer_interrupt();
     // timer::set_next_trigger();

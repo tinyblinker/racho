@@ -1,7 +1,7 @@
 use core::fmt::{self, Debug, Formatter};
 
 use crate::{
-    config::{PAGE_SIZE, PAGE_SIZE_BITS, PTES_PER_PAGE},
+    config::{PAGE_SIZE, PAGE_SIZE_BITS},
     mm::page_table::PageTableEntry,
 };
 
@@ -146,15 +146,15 @@ impl PhysPageNum {
     /// the entire page like a normal array.
     pub fn get_bytes_array(&self) -> &'static mut [u8] {
         let pa: PhysAddr = self.clone().into();
-        unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut u8, PAGE_SIZE) }
+        framework::phys_to_byte_slice(pa.0, PAGE_SIZE)
     }
     pub fn get_pte_array(&self) -> &'static mut [PageTableEntry] {
         let pa: PhysAddr = self.clone().into();
-        unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut PageTableEntry, PTES_PER_PAGE) }
+        framework::phys_to_slice(pa.0, crate::config::PTES_PER_PAGE)
     }
     pub fn get_mut<T>(&self) -> &'static mut T {
         let pa: PhysAddr = self.clone().into();
-        unsafe { (pa.0 as *mut T).as_mut().unwrap() }
+        framework::phys_to_ref(pa.0)
     }
 }
 impl VirtPageNum {
