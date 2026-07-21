@@ -22,12 +22,9 @@ use crate::heap_test;
 
 /// initiate the heap allocator, frame allocator and kernel space
 pub fn init() {
-    heap_allocator::init_heap();
+    init_heap();
     heap_test();
-    frame_allocator::init_frame_allocator();
+    init_frame_allocator();
     frame_allocator_test();
-    // NOTE: How the kernel page table is set up (TOPIC)
-    // Activate SV39 paging mode
-    // successfully established the KERNEL_SPACE
     KERNEL_SPACE.exclusive_access().active();
 }

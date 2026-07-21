@@ -42,11 +42,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "framework"
+version = "0.1.0"
+dependencies = [
+ "buddy_system_allocator",
+]
+
+[[package]]
 name = "kernel"
 version = "0.1.0"
 dependencies = [
  "bitflags",
  "buddy_system_allocator",
+ "framework",
  "lazy_static",
  "log",
  "riscv",
