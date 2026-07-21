@@ -24,18 +24,25 @@ racho/
 ├── kernel/                # Kernel crate
 │   ├── src/
 │   │   ├── main.rs        # Kernel entry
+│   │   ├── entry.asm      # Assembly entry (_start -> rust_main)
 │   │   ├── trap/          # Trap handling (interrupt/exception/syscall)
 │   │   ├── task/          # Task management (TCB / scheduler / __switch)
 │   │   ├── syscall/       # Syscalls (write/exit/yield/get_time)
 │   │   ├── mm/            # Memory management (SV39 paging / frame allocator / heap)
 │   │   ├── sync/          # UPSafeCell
-│   │   └── boards/        # Board config (CLOCK_FREQ, MMIO)
+│   │   ├── sbi.rs         # SBI wrappers (console, set_timer, shutdown)
+│   │   ├── logging.rs     # Colored logger
+│   │   ├── console.rs     # print!/println! via SBI
+│   │   ├── timer.rs       # RISC-V timer (set_next_trigger / get_time)
+│   │   └── loader.rs      # Loads embedded user apps from linker symbols
 │   ├── build.rs           # Generates link_app.S, embeds user apps
 │   └── linker-qemu.ld
 ├── user_lib/              # Userspace crate
 │   └── src/bin/           # User apps (power_3/5/7, sleep)
+├── framework/             # Thin unsafe layer (linker symbols / heap init / phys helpers)
 ├── bootloader/            # RustSBI binary
-└── flake.nix              # Nix dev environment
+├── tools/                 # QEMU runner & GDB client scripts
+└── flake.nix              # Nix dev environment with rustup, QEMU, gdb
 ```
 
 ## Roadmap
