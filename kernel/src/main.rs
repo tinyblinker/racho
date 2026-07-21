@@ -2,14 +2,12 @@
 #![no_main]
 #![feature(alloc_error_handler)]
 
-#[path = "boards/qemu.rs"]
-mod boards;
-
-//add my MODs
-extern crate bitflags;
+extern crate alloc;
 
 #[macro_use]
 mod console;
+
+mod boards;
 mod config;
 mod lang_items;
 mod loader;
@@ -17,20 +15,18 @@ mod logging;
 mod mm;
 mod sbi;
 mod sync;
+mod timer;
+
 pub mod syscall;
 pub mod task;
-mod timer;
 pub mod trap;
-extern crate alloc;
 
 use core::arch::global_asm;
 use log::*;
 
-use crate::mm::{frame_allocator_test, init_frame_allocator, init_heap};
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S"));
 
-/// clear BSS segment
 fn clear_bss() {
     unsafe extern "C" {
         safe fn sbss();
@@ -45,9 +41,9 @@ fn clear_bss() {
 
 #[allow(unused)]
 fn heap_test() {
-    info!("[kernel test02] heap init test ...");
     use alloc::boxed::Box;
     use alloc::vec::Vec;
+
     unsafe extern "C" {
         safe fn sbss();
         safe fn ebss();
@@ -69,42 +65,15 @@ fn heap_test() {
     info!("[kernel test02] heap init test passed!");
 }
 
-/// the rust entry-point of OS
 #[unsafe(no_mangle)]
 pub fn rust_main() -> ! {
-    // Referrence
-    // clear_bss();
-    // logging::init();
-    // info!("[kernel] Hello, world!");
-    //
-    // // Initialize the kernel heap and run a heap memory test
-    // init_heap();
-    // heap_test();
-    //
-    // // Initialize the physical frame allocator
-    // init_frame_allocator();
-    // frame_allocator_test();
-    //
-    // // Run user applications
-    // trap::init();
-    // loader::load_apps();
-    // trap::enable_timer_interrupt();
-    // timer::set_next_trigger();
-    // task::run_first_task();
-    //
-    // panic!("Unreachable in rust_main");
-    clear_bss(); // test ok!
+    clear_bss();
+
     logging::init();
-    // TODO:
-    // 7.19,20;继续排除问题重构代码让上面这两个函数的调用链正常,遇到必要时,重构代码和写测试代码
-    // 重构代码,参考framework kernel,分离safe rust和unsafe rust;
-    // 分享想法(重构framework kernel后,录制演示视频)
-    // 直接录制演示视频,写一个架构介绍去咨询意见
     mm::init();
-    trap::init(); // setup the kernel trap
+    trap::init();
     trap::enable_timer_interrupt();
     timer::set_next_trigger();
     task::run_first_task();
     panic!("Unreachable in rust_main!");
-    // NOTE: 7.14决定完全重构,刚检查完主函数,后续继续重构
 }

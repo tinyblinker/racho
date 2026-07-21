@@ -1,6 +1,7 @@
+use core::arch::asm;
+
 use crate::config::*;
 use crate::trap::TrapContext;
-use core::arch::asm;
 
 #[repr(align(4096))]
 #[derive(Clone, Copy)]
@@ -27,7 +28,7 @@ impl KernelStack {
         self.data.as_ptr() as usize + KERNEL_STACK_SIZE
     }
     pub fn push_context(&self, trap_cx: TrapContext) -> usize {
-        let trap_cx_ptr = (self.get_sp() - core::mem::size_of::<TrapContext>()) as *mut TrapContext;
+        let trap_cx_ptr = (self.get_sp() - size_of::<TrapContext>()) as *mut TrapContext;
         unsafe {
             *trap_cx_ptr = trap_cx;
         }

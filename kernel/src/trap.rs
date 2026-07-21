@@ -11,15 +11,9 @@
 //! It then calls different functionality based on what exactly the exception
 //! was. For example, timer interrupts trigger task preemption, and syscalls go
 //! to [`syscall()`].
-mod context;
 
-use crate::config::{TRAMPOLINE, TRAP_CONTEXT};
-use crate::task::{
-    current_trap_cx, current_user_token, exit_current_and_run_next, suspend_current_and_run_next,
-};
-use crate::{syscall::syscall, timer::set_next_trigger};
-pub use context::TrapContext;
 use core::arch::{asm, global_asm};
+
 use log::info;
 use riscv::register::{
     scause::{self, Exception, Interrupt, Trap},
@@ -27,9 +21,18 @@ use riscv::register::{
     stvec::{self, TrapMode},
 };
 
-global_asm!(include_str!("trap.S"));
+use crate::config::{TRAMPOLINE, TRAP_CONTEXT};
+use crate::syscall::syscall;
+use crate::task::{
+    current_trap_cx, current_user_token, exit_current_and_run_next, suspend_current_and_run_next,
+};
+use crate::timer::set_next_trigger;
 
-/// set kernel trap entry
+mod context;
+pub use context::TrapContext;
+
+global_asm!(include_str!("trap/trap.S"));
+
 pub fn init() {
     set_kernel_trap_entry();
 }
@@ -53,7 +56,7 @@ fn set_kernel_trap_entry() {
 pub fn enable_timer_interrupt() {
     info!("[kernel test05] use sie to enable stimer interrupt ...!");
     unsafe {
-        sie::set_stimer(); // can be triggered in the trap_handler
+        sie::set_stimer();
     }
     info!("[kernel test05] use sie to enable stimer interrupt ok!");
 }
@@ -144,15 +147,10 @@ pub fn trap_return() -> ! {
     unsafe {
         asm!(
             "fence.i",
-            "jr {restore_va}",      // jump to new addr of __restore asm function
-            // NOTE:
-            // "Put the Rust variable restore_va into a register, and bind that register to the {restore_va} placeholder in the assembly string."
-            restore_va = in(reg) restore_va, // compiler paras!! not asm!!
-             // a0 = virt addr of Trap Context
-            in("a0") trap_cx_ptr, // compiler paras!! not asm!!
-            // a1 = userspace's satp setup value
-            in("a1") user_satp, // compiler paras!! not asm!!
-            // do not return
+            "jr {restore_va}",
+            restore_va = in(reg) restore_va,
+            in("a0") trap_cx_ptr,
+            in("a1") user_satp,
             options(noreturn)
         );
     }
