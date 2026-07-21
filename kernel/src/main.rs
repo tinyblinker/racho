@@ -21,6 +21,7 @@ pub mod syscall;
 pub mod task;
 pub mod trap;
 
+use crate::logging::init;
 use core::arch::global_asm;
 use framework::clear_bss;
 use log::*;
