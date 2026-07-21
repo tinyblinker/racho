@@ -14,7 +14,7 @@ unsafe extern "C" {
 }
 
 pub fn clear_bss() {
-    for addr in sbss as usize..ebss as usize {
+    for addr in sbss as *const () as usize..ebss as *const () as usize {
         unsafe {
             (addr as *mut u8).write_volatile(0);
         }

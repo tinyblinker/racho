@@ -22,22 +22,11 @@ pub mod task;
 pub mod trap;
 
 use core::arch::global_asm;
+use framework::clear_bss;
 use log::*;
 
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S"));
-
-fn clear_bss() {
-    unsafe extern "C" {
-        safe fn sbss();
-        safe fn ebss();
-    }
-    for item in sbss as unsafe extern "C" fn() as usize..ebss as unsafe extern "C" fn() as usize {
-        unsafe {
-            (item as *mut u8).write_volatile(0);
-        }
-    }
-}
 
 #[allow(unused)]
 fn heap_test() {
@@ -68,12 +57,11 @@ fn heap_test() {
 #[unsafe(no_mangle)]
 pub fn rust_main() -> ! {
     clear_bss();
-
     logging::init();
-    mm::init();
-    trap::init();
-    trap::enable_timer_interrupt();
-    timer::set_next_trigger();
-    task::run_first_task();
+    // mm::init();
+    // trap::init();
+    // trap::enable_timer_interrupt();
+    // timer::set_next_trigger();
+    // task::run_first_task();
     panic!("Unreachable in rust_main!");
 }

@@ -11,6 +11,7 @@ xmas-elf.workspace = true
 sbi-rt.workspace = true
 buddy_system_allocator.workspace = true
 bitflags.workspace = true
+framework = { path = "../framework" }
 
 [lints]
 workspace = true
