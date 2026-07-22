@@ -36,7 +36,6 @@ pub fn init() {
     set_kernel_trap_entry();
 }
 
-#[unsafe(no_mangle)]
 /// Unimplement: traps/interrupts/exceptions from kernel mode
 /// TODO: Chapter 9: I/O device
 pub fn trap_from_kernel() -> ! {
@@ -52,7 +51,6 @@ pub fn enable_timer_interrupt() {
     framework::set_sie_enable_stimer();
 }
 
-#[unsafe(no_mangle)]
 /// handle an interrupt, exception, or system call from user space
 pub fn trap_handler() -> ! {
     set_kernel_trap_entry();
@@ -97,7 +95,6 @@ fn set_user_trap_entry() {
     framework::set_stvec(TRAMPOLINE, TrapMode::Direct);
 }
 
-#[unsafe(no_mangle)]
 /// set the new addr of __restore asm function in TRAMPOINE page,
 /// set the reg a0 = trap_cx_ptr, reg a1 = phy addr of usr page table,
 /// finally, jump to new addr of __restore asm function

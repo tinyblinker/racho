@@ -3,7 +3,11 @@ use std::io::{Result, Write};
 use std::path::PathBuf;
 
 fn main() {
-    println!("cargo:rustc-link-arg=-Tkernel/src/linker-qemu.ld");
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    println!(
+        "cargo:rustc-link-arg=-T{}/../framework/linker-qemu.ld",
+        manifest_dir
+    );
     println!("cargo:rerun-if-changed=../user_lib/src/");
 
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());

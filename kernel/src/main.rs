@@ -21,9 +21,7 @@ pub mod syscall;
 pub mod task;
 
 use core::arch::global_asm;
-use framework::clear_bss;
 
-global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S"));
 
 #[allow(unused)]
@@ -47,14 +45,13 @@ fn heap_test() {
     drop(v);
 }
 
-#[unsafe(no_mangle)]
-pub fn rust_main() -> ! {
-    clear_bss();
+#[unsafe(export_name = "kernel_main")]
+pub fn main() -> ! {
     logging::init();
     mm::init();
     trap::init();
     trap::enable_timer_interrupt();
     timer::set_next_trigger();
     task::run_first_task();
-    panic!("Unreachable in rust_main!");
+    panic!("Unreachable in main!");
 }

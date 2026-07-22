@@ -69,3 +69,17 @@ pub fn alltraps_addr() -> usize {
 pub fn restore_addr() -> usize {
     __restore as *const () as usize
 }
+
+use core::arch::global_asm;
+global_asm!(include_str!("entry.asm"));
+
+#[unsafe(no_mangle)]
+pub fn rust_main() -> ! {
+    clear_bss();
+    unsafe extern "C" {
+        fn kernel_main() -> !;
+    }
+    unsafe {
+        kernel_main();
+    }
+}
