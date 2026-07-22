@@ -33,6 +33,13 @@ SECTIONS
     *(.sdata .sdata.*)
   }
 
+  . = ALIGN(8);
+  .init_array : {
+    __init_array_start = .;
+    KEEP(*(.init_array .init_array.*))
+    __init_array_end = .;
+  }
+
   . = ALIGN(4K);
   edata = .;
   sbss_with_stack = .;

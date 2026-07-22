@@ -12,8 +12,6 @@
 //! was. For example, timer interrupts trigger task preemption, and syscalls go
 //! to [`syscall()`].
 
-use core::arch::global_asm;
-
 use riscv::register::{
     scause::{self, Exception, Interrupt, Trap},
     stval,
@@ -29,8 +27,6 @@ use crate::timer::set_next_trigger;
 
 mod context;
 pub use context::TrapContext;
-
-global_asm!(include_str!("trap/trap.S"));
 
 pub fn init() {
     set_kernel_trap_entry();

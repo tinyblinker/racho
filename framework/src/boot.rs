@@ -70,16 +70,50 @@ pub fn restore_addr() -> usize {
     __restore as *const () as usize
 }
 
-use core::arch::global_asm;
-global_asm!(include_str!("entry.asm"));
+pub trait Kernel {
+    fn main() -> !;
+}
+
+pub fn boot<K: Kernel>() -> ! {
+    clear_bss();
+    K::main()
+}
+
+#[macro_export]
+macro_rules! register_kernel {
+    ($kernel:ty) => {
+        #[used]
+        #[unsafe(link_section = ".init_array")]
+        static _FRAMEWORK_BOOT_KERNEL: unsafe extern "C" fn() = {
+            unsafe extern "C" fn __framework_boot() {
+                $crate::boot::<$kernel>();
+            }
+            __framework_boot
+        };
+    };
+}
 
 #[unsafe(no_mangle)]
 pub fn rust_main() -> ! {
     clear_bss();
-    unsafe extern "C" {
-        fn kernel_main() -> !;
-    }
-    unsafe {
-        kernel_main();
+    execute_init_array();
+    panic!("No kernel entry registered in .init_array");
+}
+
+unsafe extern "C" {
+    fn __init_array_start();
+    fn __init_array_end();
+}
+
+fn execute_init_array() {
+    let start = __init_array_start as *const () as *const usize;
+    let end = __init_array_end as *const () as *const usize;
+    let count = (end as usize - start as usize) / size_of::<usize>();
+    for i in 0..count {
+        let func: unsafe extern "C" fn() =
+            unsafe { core::mem::transmute(*start.add(i)) };
+        unsafe {
+            func();
+        }
     }
 }
