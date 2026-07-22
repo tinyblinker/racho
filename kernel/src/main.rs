@@ -22,7 +22,6 @@ pub mod task;
 
 use core::arch::global_asm;
 use framework::clear_bss;
-use log::*;
 
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S"));

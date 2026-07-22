@@ -14,11 +14,10 @@
 
 use core::arch::{asm, global_asm};
 
-use log::info;
 use riscv::register::{
     scause::{self, Exception, Interrupt, Trap},
-    sie, stval,
-    stvec::{self, TrapMode},
+    stval,
+    stvec::TrapMode,
 };
 
 use crate::config::{TRAMPOLINE, TRAP_CONTEXT};
