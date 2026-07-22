@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 buddy_system_allocator.workspace = true
+riscv.workspace = true
 
 [lints]
 workspace = true

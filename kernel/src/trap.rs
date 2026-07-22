@@ -46,18 +46,14 @@ pub fn trap_from_kernel() -> ! {
 
 fn set_kernel_trap_entry() {
     info!("[kernel test04] set kernel trap entry ...");
-    unsafe {
-        stvec::write(trap_from_kernel as *const () as usize, TrapMode::Direct);
-    }
+    framework::set_stvec(trap_from_kernel as *const () as usize, TrapMode::Direct);
     info!("[kernel test04] set kernel trap entry ok!");
 }
 
 /// timer interrupt enabled
 pub fn enable_timer_interrupt() {
     info!("[kernel test05] use sie to enable stimer interrupt ...!");
-    unsafe {
-        sie::set_stimer();
-    }
+    framework::set_sie_enable_stimer();
     info!("[kernel test05] use sie to enable stimer interrupt ok!");
 }
 
@@ -118,9 +114,7 @@ pub fn trap_handler() -> ! {
 
 fn set_user_trap_entry() {
     info!("[kernel test10] (stvec) setting user trap entry ...!");
-    unsafe {
-        stvec::write(TRAMPOLINE as usize, TrapMode::Direct);
-    }
+    framework::set_stvec(TRAMPOLINE, TrapMode::Direct);
     info!("[kernel test10] (stvec) setting user trap entry ok!");
 }
 

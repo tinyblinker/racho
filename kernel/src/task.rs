@@ -31,16 +31,16 @@ lazy_static! {
     pub static ref TASK_MANAGER: TaskManager = {
         info!("[kernel test07] init TASK_MANAGER ...!");
         let num_app = get_num_app();
-        println!("num_app = {}",num_app);
+        println!("num_app = {}", num_app);
         let mut tasks: Vec<TaskControlBlock> = Vec::new();
-        for i in 0..num_app{
+        for i in 0..num_app {
             tasks.push(TaskControlBlock::new(get_app_data(i), i));
         }
         info!("[kernel test07] init TASK_MANAGER ok!");
         TaskManager {
             num_app,
             inner: unsafe {
-                UPSafeCell::new(TaskManagerInner{
+                UPSafeCell::new(TaskManagerInner {
                     tasks,
                     current_task: 0,
                 })

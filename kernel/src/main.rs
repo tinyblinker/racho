@@ -57,9 +57,9 @@ pub fn rust_main() -> ! {
     mm::init();
     // NOTE: finished removed (only necessary unsafe in framework) all the unsafe in the "mm::init"
     // TODO: 7.22 remove necessary(minimal) unsafe to framework in trap::init();
-    trap::init();
-    trap::enable_timer_interrupt();
-    timer::set_next_trigger();
+    trap::init(); // NOTE: ToSafeRust: ok!
+    trap::enable_timer_interrupt(); // NOTE: ToSafeRust: ok!
+    timer::set_next_trigger(); // NOTE: ToSafeRust: ok!
     task::run_first_task();
     panic!("Unreachable in rust_main!");
 }
