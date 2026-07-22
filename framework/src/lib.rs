@@ -1,6 +1,8 @@
 #![no_std]
 mod boot;
 mod memory;
+mod sync;
+mod task;
 mod trap;
 
 pub use boot::{
@@ -11,4 +13,6 @@ pub use memory::{
     KERNEL_HEAP_SIZE, heap_region, init_heap_allocator, phys_to_byte_slice, phys_to_ref,
     phys_to_slice, sfence_vma, write_satp,
 };
+pub use sync::UPSafeCell;
+pub use task::{TaskContext, context_switch};
 pub use trap::{set_sie_enable_stimer, set_stvec};

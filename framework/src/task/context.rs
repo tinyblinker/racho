@@ -1,0 +1,40 @@
+//! Implementation of [`TaskContext`]
+
+/// Task Context
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct TaskContext {
+    /// return address ( e.g. __restore ) of __switch ASM function
+    ra: usize,
+    /// kernel stack pointer of app
+    sp: usize,
+    /// callee saved registers: s 0..11
+    s: [usize; 12],
+}
+
+impl TaskContext {
+    /// init task context
+    pub fn zero_init() -> Self {
+        Self {
+            ra: 0,
+            sp: 0,
+            s: [0; 12],
+        }
+    }
+
+    /// set Task Context{__restore ASM function: trap_return, sp: kstack_ptr, s: s_0..12}
+    // pub fn goto_trap_return(kstack_ptr: usize) -> Self {
+    //     Self {
+    //         ra: trap_return as *const () as usize,
+    //         sp: kstack_ptr,
+    //         s: [0; 12],
+    //     }
+    // }
+    pub fn new(return_addr: usize, kernel_sp: usize) -> Self {
+        Self {
+            ra: return_addr,
+            sp: kernel_sp,
+            s: [0; 12],
+        }
+    }
+}
