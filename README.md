@@ -1,6 +1,6 @@
 > **NOTE**
 >
-> *This project is at an extremely early stage of development — almost nothing has been implemented yet, and everything is immature. The README.md was also written by AI; it looks impressive but actual functionality is far from complete. Please do not take this early, rough project too seriously. I will update this notice myself once a stable release is ready.*
+> *{Intro:Multi-architecture(now only riscv64gc on qemu-virt first, do it bad first, then reconstruct later) toykernel, with "framekernel" target inspired by "Asterinas",with an "Alpine-like" userland target(musl + BusyBox).}This project is at an extremely early stage of development — almost nothing has been implemented yet, and everything is immature. The README.md was also written by AI; it looks impressive but actual functionality is far from complete. Please do not take this early, rough project too seriously. I will update this notice myself once a stable release is ready.*
 
 # racho
 
