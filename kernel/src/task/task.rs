@@ -1,6 +1,5 @@
 //! Types related to task management
 
-use super::context::TaskContext;
 use crate::config::TRAP_CONTEXT;
 use crate::config::kernel_stack_position;
 use crate::mm::KERNEL_SPACE;
@@ -10,6 +9,8 @@ use crate::mm::PhysPageNum;
 use crate::mm::VirtAddr;
 use crate::trap::TrapContext;
 use crate::trap::trap_handler;
+use crate::trap::trap_return;
+use framework::TaskContext;
 
 /// task contrl block structure
 pub struct TaskControlBlock {
@@ -41,7 +42,7 @@ impl TaskControlBlock {
         );
         let task_control_block = Self {
             task_status,
-            task_cx: TaskContext::goto_trap_return(kernel_stack_top),
+            task_cx: TaskContext::new(trap_return() as *const () as usize, kernel_stack_top),
             memory_set,
             trap_cx_ppn,
             base_size: user_sp,

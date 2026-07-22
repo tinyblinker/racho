@@ -14,12 +14,11 @@ mod loader;
 mod logging;
 mod mm;
 mod sbi;
-mod sync;
 mod timer;
+mod trap;
 
 pub mod syscall;
 pub mod task;
-pub mod trap;
 
 use core::arch::global_asm;
 use framework::clear_bss;
@@ -47,11 +46,12 @@ fn heap_test() {
     }
     assert!(bss_range.contains(&(v.as_ptr() as *const _ as *const () as usize)));
     drop(v);
-    info!("[kernel test02] heap init test passed!");
 }
 
 #[unsafe(no_mangle)]
 pub fn rust_main() -> ! {
+    // TODO: 2026.7.22:README待加入:放代码到framekernel的原则:只有不得不unsafe{}的最小代码块放入,
+    // 而在kernel中能用safe rust解决的绝对不放入framekernel的framework中去
     clear_bss();
     logging::init();
     mm::init();
@@ -60,6 +60,6 @@ pub fn rust_main() -> ! {
     trap::init(); // NOTE: ToSafeRust: ok!
     trap::enable_timer_interrupt(); // NOTE: ToSafeRust: ok!
     timer::set_next_trigger(); // NOTE: ToSafeRust: ok!
-    task::run_first_task();
+    task::run_first_task(); // TODO: remove unsafe{} in run_first_task()
     panic!("Unreachable in rust_main!");
 }

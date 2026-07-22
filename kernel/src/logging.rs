@@ -44,5 +44,4 @@ pub fn init() {
     info!("[kernel test01] info log test!");
     debug!("[kernel test01] debug log test!");
     trace!("[kernel test01] trace log test!");
-    info!("[kernel test01] log init finished!(check if the above looks ok)");
 }
