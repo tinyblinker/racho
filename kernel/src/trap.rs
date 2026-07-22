@@ -12,7 +12,7 @@
 //! was. For example, timer interrupts trigger task preemption, and syscalls go
 //! to [`syscall()`].
 
-use core::arch::{asm, global_asm};
+use core::arch::global_asm;
 
 use riscv::register::{
     scause::{self, Exception, Interrupt, Trap},
@@ -105,20 +105,5 @@ pub fn trap_return() -> ! {
     set_user_trap_entry();
     let trap_cx_ptr = TRAP_CONTEXT;
     let user_satp = current_user_token();
-    unsafe extern "C" {
-        unsafe fn __alltraps();
-        unsafe fn __restore();
-    }
-    let restore_va =
-        __restore as *const () as usize - __alltraps as *const () as usize + TRAMPOLINE;
-    unsafe {
-        asm!(
-            "fence.i",
-            "jr {restore_va}",
-            restore_va = in(reg) restore_va,
-            in("a0") trap_cx_ptr,
-            in("a1") user_satp,
-            options(noreturn)
-        );
-    }
+    framework::restore_to_user(trap_cx_ptr, user_satp, TRAMPOLINE);
 }

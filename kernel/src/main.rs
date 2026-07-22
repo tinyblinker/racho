@@ -49,16 +49,12 @@ fn heap_test() {
 
 #[unsafe(no_mangle)]
 pub fn rust_main() -> ! {
-    // TODO: 2026.7.22:README待加入:放代码到framekernel的原则:只有不得不unsafe{}的最小代码块放入,
-    // 而在kernel中能用safe rust解决的绝对不放入framekernel的framework中去
     clear_bss();
     logging::init();
     mm::init();
-    // NOTE: finished removed (only necessary unsafe in framework) all the unsafe in the "mm::init"
-    // TODO: 7.22 remove necessary(minimal) unsafe to framework in trap::init();
-    trap::init(); // NOTE: ToSafeRust: ok!
-    trap::enable_timer_interrupt(); // NOTE: ToSafeRust: ok!
-    timer::set_next_trigger(); // NOTE: ToSafeRust: ok!
-    task::run_first_task(); // TODO: remove unsafe{} in run_first_task()
+    trap::init();
+    trap::enable_timer_interrupt();
+    timer::set_next_trigger();
+    task::run_first_task();
     panic!("Unreachable in rust_main!");
 }

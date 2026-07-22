@@ -11,6 +11,9 @@ unsafe extern "C" {
     fn sbss_with_stack();
     fn ekernel();
     fn strampoline();
+    fn _num_app();
+    fn __alltraps();
+    fn __restore();
 }
 
 pub fn clear_bss() {
@@ -41,3 +44,28 @@ define_addr_getter!(ebss_addr, ebss);
 define_addr_getter!(sbss_with_stack_addr, sbss_with_stack);
 define_addr_getter!(ekernel_addr, ekernel);
 define_addr_getter!(strampoline_addr, strampoline);
+
+pub fn get_num_app() -> usize {
+    unsafe { (_num_app as *const () as *const usize).read_volatile() }
+}
+
+pub fn get_app_data(app_id: usize) -> &'static [u8] {
+    let num_app = get_num_app();
+    let num_app_ptr = _num_app as *const () as *const usize;
+    let app_start = unsafe { core::slice::from_raw_parts(num_app_ptr.add(1), num_app + 1) };
+    assert!(app_id < num_app);
+    unsafe {
+        core::slice::from_raw_parts(
+            app_start[app_id] as *const u8,
+            app_start[app_id + 1] - app_start[app_id],
+        )
+    }
+}
+
+pub fn alltraps_addr() -> usize {
+    __alltraps as *const () as usize
+}
+
+pub fn restore_addr() -> usize {
+    __restore as *const () as usize
+}
