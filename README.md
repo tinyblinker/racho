@@ -2,6 +2,10 @@
 >
 > *{Intro:Multi-architecture(now only riscv64gc on qemu-virt first, do it bad first, then reconstruct later) toykernel, with "framekernel" target inspired by "Asterinas",with an "Alpine-like" userland target(musl + BusyBox).}This project is at an extremely early stage of development — almost nothing has been implemented yet, and everything is immature. The README.md was also written by AI; it looks impressive but actual functionality is far from complete. Please do not take this early, rough project too seriously. I will update this notice myself once a stable release is ready.*
 
+[![GitHub stars](https://img.shields.io/github/stars/tinyblinker/racho?style=for-the-badge&logo=github&label=Stars&color=ffb300)](https://github.com/tinyblinker/racho/stargazers)
+[![CI](https://github.com/tinyblinker/racho/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/tinyblinker/racho/actions/workflows/CI.yml)
+[![RISC-V](https://img.shields.io/badge/RISC--V-283272?style=for-the-badge&logo=riscv&logoColor=white)](https://riscv.org)
+
 # racho
 
 A Rust kernel for RISC-V 64, built along the [rCore Tutorial](https://rcore-os.cn/rCore-Tutorial-Book-v3/) (Ch.1–4). Currently implements batch/time-sharing task scheduling with SV39 paging.
@@ -21,25 +25,34 @@ make run
 
 ```
 racho/
-├── kernel/                # Kernel crate
+├── kernel/                # Kernel crate (safe Rust policy layer)
 │   ├── src/
-│   │   ├── main.rs        # Kernel entry
-│   │   ├── entry.asm      # Assembly entry (_start -> rust_main)
-│   │   ├── trap/          # Trap handling (interrupt/exception/syscall)
-│   │   ├── task/          # Task management (TCB / scheduler / __switch)
-│   │   ├── syscall/       # Syscalls (write/exit/yield/get_time)
-│   │   ├── mm/            # Memory management (SV39 paging / frame allocator / heap)
-│   │   ├── sync/          # UPSafeCell
-│   │   ├── sbi.rs         # SBI wrappers (console, set_timer, shutdown)
+│   │   ├── main.rs        # Kernel entry (RachoKernel)
+│   │   ├── boards.rs      # Board-specific configuration
+│   │   ├── config.rs      # Kernel configuration constants
+│   │   ├── lang_items.rs  # Rust #[lang] items for no_std
 │   │   ├── logging.rs     # Colored logger
 │   │   ├── console.rs     # print!/println! via SBI
+│   │   ├── sbi.rs         # SBI wrappers (console, set_timer, shutdown)
 │   │   ├── timer.rs       # RISC-V timer (set_next_trigger / get_time)
-│   │   └── loader.rs      # Loads embedded user apps from linker symbols
+│   │   ├── loader.rs      # Loads embedded user apps from linker symbols
+│   │   ├── trap.rs        # Trap handling (interrupt/exception/syscall)
+│   │   ├── task.rs        # Task management (TCB / scheduler)
+│   │   ├── syscall.rs     # Syscall dispatch
+│   │   └── mm/            # Memory management (SV39 paging / frame allocator / heap)
+│   └── build.rs           # Linker script & build config
+├── framework/             # Thin unsafe layer
+│   ├── src/
+│   │   ├── boot.rs        # Kernel trait, alltraps, restore, symbol addresses
+│   │   ├── entry.asm      # Assembly entry (_start -> boot)
+│   │   ├── memory.rs      # Physical memory helpers, heap init, SATP
+│   │   ├── sync.rs        # UPSafeCell
+│   │   ├── trap.S         # Assembly trap handler
+│   │   └── task/          # Task context & __switch (context.rs + switch.S)
 │   ├── build.rs           # Generates link_app.S, embeds user apps
-│   └── linker-qemu.ld
+│   └── linker-qemu.ld     # Kernel linker script
 ├── user_lib/              # Userspace crate
 │   └── src/bin/           # User apps (power_3/5/7, sleep)
-├── framework/             # Thin unsafe layer (linker symbols / heap init / phys helpers)
 ├── bootloader/            # RustSBI binary
 ├── tools/                 # QEMU runner & GDB client scripts
 └── flake.nix              # Nix dev environment with rustup, QEMU, gdb
