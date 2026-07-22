@@ -2,10 +2,9 @@ use core::fmt::{self, Debug, Formatter};
 
 use crate::boards::MEMORY_END;
 use crate::mm::address::{PhysAddr, PhysPageNum};
-use crate::sync::UPSafeCell;
 use alloc::vec::Vec;
+use framework::UPSafeCell;
 use lazy_static::lazy_static;
-use log::info;
 
 /// manage a frame which has the same lifecycle as the tracker
 /// Uses RAII: the lifecycle of a PhysPageNum is bound to a FrameTracker
@@ -99,7 +98,7 @@ impl FrameAllocator for StackFrameAllocator {
 type FrameAllocatorImpl = StackFrameAllocator;
 lazy_static! {
     pub static ref FRAME_ALLOCATOR: UPSafeCell<FrameAllocatorImpl> =
-        unsafe { UPSafeCell::new(FrameAllocatorImpl::new()) };
+        UPSafeCell::new(FrameAllocatorImpl::new());
 }
 
 // We wrap the stack-based frame allocator in a UPSafeCell<T>. Before any
@@ -134,7 +133,6 @@ fn frame_dealloc(ppn: PhysPageNum) {
 #[allow(unused)]
 /// a simple test for frame allocator
 pub fn frame_allocator_test() {
-    info!("[kernel test03] frame allocator init test ...");
     let mut v: Vec<FrameTracker> = Vec::new();
     for i in 0..5 {
         let frame = frame_alloc().unwrap();
@@ -148,5 +146,4 @@ pub fn frame_allocator_test() {
         v.push(frame);
     }
     drop(v);
-    info!("[kernel test03] frame allocator init test ok!");
 }
