@@ -1,7 +1,6 @@
 //! RISC-V timer-related functionality
 
 use crate::{boards::CLOCK_FREQ, sbi::set_timer};
-use log::info;
 use riscv::register::time;
 
 const TICKS_PER_SEC: usize = 1000;
@@ -19,7 +18,5 @@ pub fn get_time_ms() -> usize {
 
 /// set the next timer interrupt
 pub fn set_next_trigger() {
-    info!("[kernel test06] set timer to control the frequency of timer interrupt ...!");
     set_timer(get_time() + CLOCK_FREQ / TICKS_PER_SEC);
-    info!("[kernel test06] set timer to control the frequency of timer interrupt ok!");
 }

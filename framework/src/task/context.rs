@@ -1,7 +1,5 @@
 //! Implementation of [`TaskContext`]
 
-use crate::trap::trap_return;
-
 /// Task Context
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -25,10 +23,17 @@ impl TaskContext {
     }
 
     /// set Task Context{__restore ASM function: trap_return, sp: kstack_ptr, s: s_0..12}
-    pub fn goto_trap_return(kstack_ptr: usize) -> Self {
+    // pub fn goto_trap_return(kstack_ptr: usize) -> Self {
+    //     Self {
+    //         ra: trap_return as *const () as usize,
+    //         sp: kstack_ptr,
+    //         s: [0; 12],
+    //     }
+    // }
+    pub fn new(return_addr: usize, kernel_sp: usize) -> Self {
         Self {
-            ra: trap_return as *const () as usize,
-            sp: kstack_ptr,
+            ra: return_addr,
+            sp: kernel_sp,
             s: [0; 12],
         }
     }

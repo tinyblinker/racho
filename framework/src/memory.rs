@@ -41,3 +41,17 @@ pub fn sfence_vma() {
         asm!("sfence.vma");
     }
 }
+
+pub fn zero_memory(phys_addr: usize, len: usize) {
+    for addr in phys_addr..phys_addr + len {
+        unsafe {
+            (addr as *mut u8).write_volatile(0);
+        }
+    }
+}
+
+pub fn fence_i() {
+    unsafe {
+        asm!("fence.i");
+    }
+}

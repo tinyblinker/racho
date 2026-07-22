@@ -1,19 +1,17 @@
 use alloc::collections::btree_map::BTreeMap;
-use alloc::vec::Vec;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use bitflags::bitflags;
 use lazy_static::lazy_static;
-use log::info;
 
 lazy_static! {
     /// Create the global kernel address space instance
-    pub static ref KERNEL_SPACE: Arc<UPSafeCell<MemorySet>> = Arc::new(unsafe{
-        UPSafeCell::new(MemorySet::new_kernel())
-    });
+    pub static ref KERNEL_SPACE: Arc<framework::UPSafeCell<MemorySet>> = Arc::new(
+             framework::UPSafeCell::new(MemorySet::new_kernel())
+    );
 }
 
 use crate::mm::page_table::PageTableEntry;
-use crate::sync::UPSafeCell;
 use crate::{
     boards::{MEMORY_END, MMIO},
     config::{PAGE_SIZE, TRAMPOLINE, TRAP_CONTEXT, USER_STACK_SIZE},
@@ -166,26 +164,29 @@ impl MemorySet {
     // NOTE: new_kernel() implementation completed on 6.29
     // Build the kernel's address space
     pub fn new_kernel() -> Self {
-        info!("[kernel test03] KERNEL_SPACE init ...");
         let mut memory_set = Self::new_bare();
         // map trampoline
         memory_set.map_trampoline();
         // map kernel sections
         println!(
             ".text [{:#x}, {:#x})",
-            framework::stext_addr(), framework::etext_addr()
+            framework::stext_addr(),
+            framework::etext_addr()
         );
         println!(
             ".rodata [{:#x}, {:#x})",
-            framework::srodata_addr(), framework::erodata_addr()
+            framework::srodata_addr(),
+            framework::erodata_addr()
         );
         println!(
             ".data [{:#x}, {:#x})",
-            framework::sdata_addr(), framework::edata_addr()
+            framework::sdata_addr(),
+            framework::edata_addr()
         );
         println!(
             ".bss [{:#x}, {:#x})",
-            framework::sbss_with_stack_addr(), framework::ebss_addr()
+            framework::sbss_with_stack_addr(),
+            framework::ebss_addr()
         );
         println!("mapping .text section");
         memory_set.push(
@@ -249,7 +250,6 @@ impl MemorySet {
                 None,
             );
         }
-        info!("[kernel test03] KERNEL_SPACE init ok!");
         memory_set
     }
     // TODO: 6.30 add nothing
@@ -338,11 +338,9 @@ impl MemorySet {
     }
     // Activate the address space management
     pub fn active(&self) {
-        info!("[kernel notice] enable virtual memory ...!");
         let satp = self.page_table.token();
         framework::write_satp(satp);
         framework::sfence_vma();
-        info!("[kernel notice] enable virtual memory ok!");
     }
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.page_table.translate(vpn)
@@ -354,12 +352,10 @@ impl MemorySet {
     #[allow(unused)]
     pub fn remap_test() {
         let mut kernel_space = KERNEL_SPACE.exclusive_access();
-        let mid_text: VirtAddr =
-            ((framework::stext_addr() + framework::etext_addr()) / 2).into();
+        let mid_text: VirtAddr = ((framework::stext_addr() + framework::etext_addr()) / 2).into();
         let mid_rodata: VirtAddr =
             ((framework::srodata_addr() + framework::erodata_addr()) / 2).into();
-        let mid_data: VirtAddr =
-            ((framework::sdata_addr() + framework::edata_addr()) / 2).into();
+        let mid_data: VirtAddr = ((framework::sdata_addr() + framework::edata_addr()) / 2).into();
         assert!(
             !kernel_space
                 .page_table

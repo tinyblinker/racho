@@ -18,7 +18,25 @@ pub use heap_allocator::init_heap;
 pub use memory_set::{KERNEL_SPACE, MapPermission, MemorySet};
 pub use page_table::translate_byte_buffer;
 
-use crate::heap_test;
+pub fn heap_test() {
+    use alloc::boxed::Box;
+    use alloc::vec::Vec;
+
+    let bss_range = framework::sbss_addr()..framework::ebss_addr();
+    let a = Box::new(5);
+    assert_eq!(*a, 5);
+    assert!(bss_range.contains(&(a.as_ref() as *const _ as *const () as usize)));
+    drop(a);
+    let mut v: Vec<usize> = Vec::new();
+    for i in 0..500 {
+        v.push(i);
+    }
+    for i in 0..500 {
+        assert_eq!(v[i], i);
+    }
+    assert!(bss_range.contains(&(v.as_ptr() as *const _ as *const () as usize)));
+    drop(v);
+}
 
 /// initiate the heap allocator, frame allocator and kernel space
 pub fn init() {

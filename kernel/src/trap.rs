@@ -12,13 +12,10 @@
 //! was. For example, timer interrupts trigger task preemption, and syscalls go
 //! to [`syscall()`].
 
-use core::arch::{asm, global_asm};
-
-use log::info;
 use riscv::register::{
     scause::{self, Exception, Interrupt, Trap},
-    sie, stval,
-    stvec::{self, TrapMode},
+    stval,
+    stvec::TrapMode,
 };
 
 use crate::config::{TRAMPOLINE, TRAP_CONTEXT};
@@ -31,13 +28,10 @@ use crate::timer::set_next_trigger;
 mod context;
 pub use context::TrapContext;
 
-global_asm!(include_str!("trap/trap.S"));
-
 pub fn init() {
     set_kernel_trap_entry();
 }
 
-#[unsafe(no_mangle)]
 /// Unimplement: traps/interrupts/exceptions from kernel mode
 /// TODO: Chapter 9: I/O device
 pub fn trap_from_kernel() -> ! {
@@ -45,22 +39,16 @@ pub fn trap_from_kernel() -> ! {
 }
 
 fn set_kernel_trap_entry() {
-    info!("[kernel test04] set kernel trap entry ...");
     framework::set_stvec(trap_from_kernel as *const () as usize, TrapMode::Direct);
-    info!("[kernel test04] set kernel trap entry ok!");
 }
 
 /// timer interrupt enabled
 pub fn enable_timer_interrupt() {
-    info!("[kernel test05] use sie to enable stimer interrupt ...!");
     framework::set_sie_enable_stimer();
-    info!("[kernel test05] use sie to enable stimer interrupt ok!");
 }
 
-#[unsafe(no_mangle)]
 /// handle an interrupt, exception, or system call from user space
 pub fn trap_handler() -> ! {
-    info!("[kernel notice] trap_handler(): Haha, Userspace fall into Trap!");
     set_kernel_trap_entry();
     let cx = current_trap_cx();
     let scause = scause::read();
@@ -69,7 +57,6 @@ pub fn trap_handler() -> ! {
         Trap::Exception(Exception::UserEnvCall) => {
             cx.sepc += 4;
             cx.x[10] = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
-            info!("[kernel notice] trap_handler(): Haha, give user syscall()!");
         }
         Trap::Exception(Exception::StoreFault)
         | Trap::Exception(Exception::StorePageFault)
@@ -79,29 +66,17 @@ pub fn trap_handler() -> ! {
                 "[kernel] PageFault in application, bad addr = {:#x}, bad instruction = {:#x}, kernel killed it!",
                 stval, cx.sepc
             );
-            info!(
-                "[kernel notice] trap_handler(): Haha, user task pagefault, kernel skip it and go next!"
-            );
             exit_current_and_run_next();
         }
         Trap::Exception(Exception::IllegalInstruction) => {
             println!("[kernel] IllegalInstruction in application, kernel killed it.");
-            info!(
-                "[kernel notice] trap_handler(): Haha, user have IllegalInstruction, kernel skip it and go next!"
-            );
             exit_current_and_run_next();
         }
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
-            info!(
-                "[kernel notice] trap_handler(): Haha, timer interrupt comes, reset the timer and switch to the next task!"
-            );
             set_next_trigger();
             suspend_current_and_run_next();
         }
         _ => {
-            info!(
-                "[kernel notice] trap_handler(): Haha, unknown case of trap, i have no idea with what happened!"
-            );
             panic!(
                 "Unsupported trap {:?}, stval = {:#x}!",
                 scause.cause(),
@@ -113,39 +88,15 @@ pub fn trap_handler() -> ! {
 }
 
 fn set_user_trap_entry() {
-    info!("[kernel test10] (stvec) setting user trap entry ...!");
     framework::set_stvec(TRAMPOLINE, TrapMode::Direct);
-    info!("[kernel test10] (stvec) setting user trap entry ok!");
 }
 
-#[unsafe(no_mangle)]
 /// set the new addr of __restore asm function in TRAMPOINE page,
 /// set the reg a0 = trap_cx_ptr, reg a1 = phy addr of usr page table,
 /// finally, jump to new addr of __restore asm function
 pub fn trap_return() -> ! {
-    info!(
-        "[kernel test09] in '__switch(task a,task b)' call 'ret' or trap_handler() call trap_return(), let PC=ra(trap_return())!"
-    );
     set_user_trap_entry();
     let trap_cx_ptr = TRAP_CONTEXT;
     let user_satp = current_user_token();
-    unsafe extern "C" {
-        unsafe fn __alltraps();
-        unsafe fn __restore();
-    }
-    let restore_va =
-        __restore as *const () as usize - __alltraps as *const () as usize + TRAMPOLINE;
-    info!(
-        "[kernel notice] jr {restore_va}, goto '__restore' and 'sret' to userspace, until user fall into the trap->goto trap_handler addr stored in 'stvec' !"
-    );
-    unsafe {
-        asm!(
-            "fence.i",
-            "jr {restore_va}",
-            restore_va = in(reg) restore_va,
-            in("a0") trap_cx_ptr,
-            in("a1") user_satp,
-            options(noreturn)
-        );
-    }
+    framework::restore_to_user(trap_cx_ptr, user_satp, TRAMPOLINE);
 }
