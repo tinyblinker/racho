@@ -19,3 +19,23 @@ pub fn sys_yield() -> isize {
 pub fn sys_get_time() -> isize {
     get_time_ms() as isize
 }
+
+pub fn sys_fork() -> isize {
+    unimplemented!()
+}
+
+pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
+    unimplemented!()
+}
+
+pub fn sys_exec(path: *const u8) -> isize {
+    unimplemented!()
+}
+
+pub fn sys_getpid() -> isize {
+    unimplemented!()
+}
+
+pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
+    unimplemented!()
+}
